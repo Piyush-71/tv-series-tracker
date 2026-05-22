@@ -4,8 +4,8 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Search, SlidersHorizontal, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import { mediaTitles } from "@/data/media";
+import { useEffect, useMemo, useState } from "react";
+import type { MediaTitle } from "@/types/media";
 import { useDebounce } from "@/hooks/use-debounce";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,26 +21,36 @@ export function SearchOverlay({
   const [query, setQuery] = useState("");
   const [genre, setGenre] = useState("All");
   const [type, setType] = useState("All");
+  const [items, setItems] = useState<MediaTitle[]>([]);
   const debounced = useDebounce(query);
 
-  const genres = ["All", ...Array.from(new Set(mediaTitles.flatMap((item) => item.genres)))];
+  useEffect(() => {
+    if (!open) return;
+
+    const controller = new AbortController();
+    const params = new URLSearchParams();
+    if (debounced) params.set("q", debounced);
+
+    fetch(`/api/search?${params.toString()}`, { signal: controller.signal })
+      .then((response) => response.json() as Promise<{ results: MediaTitle[] }>)
+      .then((data) => setItems(data.results))
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setItems([]);
+      });
+
+    return () => controller.abort();
+  }, [debounced, open]);
+
+  const genres = ["All", ...Array.from(new Set(items.flatMap((item) => item.genres)))];
   const types = ["All", "tv", "movie", "anime", "event"];
 
   const results = useMemo(() => {
-    const value = debounced.toLowerCase();
-    return mediaTitles
+    return items
       .filter((item) => (genre === "All" ? true : item.genres.includes(genre)))
       .filter((item) => (type === "All" ? true : item.type === type))
-      .filter((item) =>
-        value
-          ? [item.title, item.description, item.platform, item.type, ...item.genres]
-              .join(" ")
-              .toLowerCase()
-              .includes(value)
-          : true,
-      )
       .sort((a, b) => b.popularity - a.popularity);
-  }, [debounced, genre, type]);
+  }, [genre, items, type]);
 
   return (
     <AnimatePresence>

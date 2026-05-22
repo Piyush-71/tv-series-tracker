@@ -1,14 +1,6 @@
 export type MediaType = "tv" | "movie" | "anime" | "event";
 
-export type Platform =
-  | "Netflix"
-  | "Apple TV+"
-  | "HBO Max"
-  | "Prime Video"
-  | "Crunchyroll"
-  | "Hulu"
-  | "Disney+"
-  | "Peacock";
+export type Platform = string;
 
 export type CastMember = {
   name: string;

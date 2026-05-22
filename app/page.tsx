@@ -1,22 +1,19 @@
 import { CarouselSection } from "@/components/media/carousel-section";
 import { HeroBanner } from "@/components/media/hero-banner";
-import { getByType, getFeaturedTitle, mediaTitles } from "@/data/media";
+import { getCatalog } from "@/lib/tmdb/service";
 
-export default function Home() {
-  const featured = getFeaturedTitle();
-  const trending = [...mediaTitles].sort((a, b) => b.popularity - a.popularity);
-  const thisWeek = mediaTitles.filter((item) => new Date(item.releaseDate) < new Date("2026-06-01"));
-  const anticipated = mediaTitles.filter((item) => item.rating >= 8.7);
+export default async function Home() {
+  const catalog = await getCatalog();
 
   return (
     <>
-      <HeroBanner title={featured} />
-      <CarouselSection title="Trending" eyebrow="Signal rising" items={trending} href="/trending" />
-      <CarouselSection title="Releasing This Week" eyebrow="Nearly here" items={thisWeek} href="/explore" />
-      <CarouselSection title="Most Anticipated" eyebrow="High voltage" items={anticipated} href="/explore" />
-      <CarouselSection title="Anime" items={getByType("anime")} href="/category/anime" />
-      <CarouselSection title="Movies" items={getByType("movie")} href="/category/movie" />
-      <CarouselSection title="TV Shows" items={getByType("tv")} href="/category/tv" />
+      <HeroBanner title={catalog.featured} />
+      <CarouselSection title="Trending" eyebrow="Signal rising" items={catalog.trending} href="/trending" />
+      <CarouselSection title="Releasing This Week" eyebrow="Nearly here" items={catalog.thisWeek} href="/explore" />
+      <CarouselSection title="Most Anticipated" eyebrow="High voltage" items={catalog.anticipated} href="/explore" />
+      <CarouselSection title="Anime" items={catalog.anime} href="/category/anime" />
+      <CarouselSection title="Movies" items={catalog.movies} href="/category/movie" />
+      <CarouselSection title="TV Shows" items={catalog.tv} href="/category/tv" />
     </>
   );
 }

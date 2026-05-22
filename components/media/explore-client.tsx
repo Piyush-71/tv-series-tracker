@@ -3,12 +3,11 @@
 import { SlidersHorizontal } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { MediaTitle, MediaType } from "@/types/media";
-import { genres } from "@/data/media";
 import { MediaGrid } from "@/components/media/media-grid";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 
-export function ExploreClient({ items }: { items: MediaTitle[] }) {
+export function ExploreClient({ items, genres }: { items: MediaTitle[]; genres: string[] }) {
   const [query, setQuery] = useState("");
   const [genre, setGenre] = useState("All");
   const [type, setType] = useState<"All" | MediaType>("All");

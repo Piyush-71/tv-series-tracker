@@ -1,19 +1,15 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { DetailView } from "@/components/media/detail-view";
-import { getTitleBySlug, mediaTitles } from "@/data/media";
+import { getSimilarTitles, getTitleBySlug } from "@/lib/tmdb/service";
 
 type Props = {
   params: Promise<{ slug: string }>;
 };
 
-export function generateStaticParams() {
-  return mediaTitles.map((title) => ({ slug: title.slug }));
-}
-
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const title = getTitleBySlug(slug);
+  const title = await getTitleBySlug(slug);
 
   if (!title) return {};
 
@@ -30,14 +26,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function TitlePage({ params }: Props) {
   const { slug } = await params;
-  const title = getTitleBySlug(slug);
+  const title = await getTitleBySlug(slug);
 
   if (!title) notFound();
 
-  const similar = mediaTitles
-    .filter((item) => item.id !== title.id)
-    .filter((item) => item.type === title.type || item.genres.some((genre) => title.genres.includes(genre)))
-    .slice(0, 6);
+  const similar = await getSimilarTitles(slug);
 
   return <DetailView title={title} similar={similar} />;
 }

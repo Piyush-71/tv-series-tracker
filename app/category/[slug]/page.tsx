@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { MediaGrid } from "@/components/media/media-grid";
-import { getByGenre, getByType, genres, mediaTitles } from "@/data/media";
+import { getAllTitles, getTitlesByQuery } from "@/lib/tmdb/service";
 import { slugToTitle } from "@/lib/utils";
 import type { MediaType } from "@/types/media";
 
@@ -18,11 +18,6 @@ const typeSlugs: Record<string, MediaType> = {
   events: "event",
 };
 
-export function generateStaticParams() {
-  const categorySlugs = genres.map((genre) => ({ slug: genre.toLowerCase().replaceAll(" ", "-") }));
-  return [...categorySlugs, ...Object.keys(typeSlugs).map((slug) => ({ slug }))];
-}
-
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   return {
@@ -34,8 +29,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function CategoryPage({ params }: Props) {
   const { slug } = await params;
   const label = slugToTitle(slug);
-  const items = typeSlugs[slug] ? getByType(typeSlugs[slug]) : getByGenre(label);
-  const fallback = items.length ? items : mediaTitles;
+  const items = typeSlugs[slug] ? await getTitlesByQuery({ type: typeSlugs[slug] }) : await getTitlesByQuery({ genre: label });
+  const fallback = items.length ? items : await getAllTitles();
 
   return (
     <section className="px-4 pb-14 pt-28 sm:px-6 lg:px-10">
