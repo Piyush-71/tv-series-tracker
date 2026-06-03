@@ -28,11 +28,25 @@ export function CountdownTimer({
   releaseDate: string;
   compact?: boolean;
 }) {
-  const [timeLeft, setTimeLeft] = useState<TimeLeft>(() => getTimeLeft(releaseDate));
+  const [timeLeft, setTimeLeft] = useState<TimeLeft>({
+    days: 0,
+    hours: 0,
+    minutes: 0,
+    seconds: 0,
+  });
 
   useEffect(() => {
-    const interval = window.setInterval(() => setTimeLeft(getTimeLeft(releaseDate)), 1000);
-    return () => window.clearInterval(interval);
+    const update = () => {
+      setTimeLeft(getTimeLeft(releaseDate));
+    };
+
+    const timeout = window.setTimeout(update, 0);
+    const interval = window.setInterval(update, 1000);
+
+    return () => {
+      window.clearTimeout(timeout);
+      window.clearInterval(interval);
+    };
   }, [releaseDate]);
 
   const units = [
@@ -58,11 +72,22 @@ export function CountdownTimer({
             key={value}
             initial={{ y: -6, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            className={compact ? "text-sm font-bold text-white" : "text-2xl font-black text-white sm:text-4xl"}
+            className={
+              compact
+                ? "text-sm font-bold text-white"
+                : "text-2xl font-black text-white sm:text-4xl"
+            }
           >
             {String(value).padStart(label === "D" ? 1 : 2, "0")}
           </motion.div>
-          <div className={compact ? "text-[10px] text-zinc-400" : "text-xs font-semibold text-zinc-400"}>
+
+          <div
+            className={
+              compact
+                ? "text-[10px] text-zinc-400"
+                : "text-xs font-semibold text-zinc-400"
+            }
+          >
             {label}
           </div>
         </motion.div>

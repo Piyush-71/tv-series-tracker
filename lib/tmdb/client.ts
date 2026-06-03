@@ -17,42 +17,63 @@ export class TmdbApiError extends Error {
 function getAuthHeaders(): Record<string, string> {
   const token = process.env.TMDB_API_READ_ACCESS_TOKEN;
 
-  if (token) {
-    return {
-      Authorization: `Bearer ${token}`,
-      accept: "application/json",
-    };
+  if (!token) {
+    throw new Error("TMDB_API_READ_ACCESS_TOKEN is not configured.");
   }
 
   return {
+    Authorization: `Bearer ${token}`,
     accept: "application/json",
   };
 }
 
 export function hasTmdbCredentials() {
-  return Boolean(process.env.TMDB_API_READ_ACCESS_TOKEN || process.env.TMDB_API_KEY);
+  return Boolean(process.env.TMDB_API_READ_ACCESS_TOKEN);
 }
 
 export async function tmdbFetch<T>(path: string, options: TmdbFetchOptions = {}): Promise<T> {
   const url = new URL(`${TMDB_BASE_URL}${path}`);
-  const apiKey = process.env.TMDB_API_KEY;
-
-  if (!process.env.TMDB_API_READ_ACCESS_TOKEN && apiKey) {
-    url.searchParams.set("api_key", apiKey);
-  }
 
   Object.entries(options.params ?? {}).forEach(([key, value]) => {
     if (value !== undefined && value !== "") url.searchParams.set(key, String(value));
   });
 
-  const response = await fetch(url, {
-    headers: getAuthHeaders(),
-    next: { revalidate: options.revalidate ?? 60 * 60 },
-  });
+  const response = await fetchWithRetry(url, options);
 
   if (!response.ok) {
     throw new TmdbApiError(`TMDB request failed for ${path}`, response.status);
   }
 
   return response.json() as Promise<T>;
+}
+
+async function fetchWithRetry(url: URL, options: TmdbFetchOptions) {
+  const attempts = 3;
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      const response = await fetch(url, {
+        headers: getAuthHeaders(),
+        next: { revalidate: options.revalidate ?? 60 * 60 },
+      });
+
+      if (!isRetryableStatus(response.status) || attempt === attempts) {
+        return response;
+      }
+    } catch (error) {
+      if (attempt === attempts) throw error;
+    }
+
+    await wait(attempt * 250);
+  }
+
+  throw new Error("TMDB retry loop ended unexpectedly.");
+}
+
+function isRetryableStatus(status: number) {
+  return status === 429 || status >= 500;
+}
+
+function wait(milliseconds: number) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
