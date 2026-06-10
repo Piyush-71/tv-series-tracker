@@ -1,6 +1,7 @@
 "use client";
 
-import { Bell, Bookmark, Menu, Moon, Search, Sun } from "lucide-react";
+import { Show, SignInButton, UserButton } from "@clerk/nextjs";
+import { Bell, Bookmark, LogIn, Menu, Moon, Search, Sun } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -34,7 +35,12 @@ export function Navbar() {
           </Link>
           <div className="hidden items-center gap-6 md:flex">
             {links.map(([label, href]) => (
-              <Link key={href} href={href} className="text-sm font-semibold text-zinc-300 transition hover:text-white">
+              <Link
+                key={href}
+                href={href}
+                prefetch={href === "/watchlist" ? false : undefined}
+                className="text-sm font-semibold text-zinc-300 transition hover:text-white"
+              >
                 {label}
               </Link>
             ))}
@@ -43,7 +49,7 @@ export function Navbar() {
             <Button aria-label="Open search" size="icon" variant="secondary" onClick={() => setSearchOpen(true)}>
               <Search size={18} />
             </Button>
-            <Link href="/watchlist" className="hidden sm:contents">
+            <Link href="/watchlist" prefetch={false} className="hidden sm:contents">
               <Button aria-label="Open watchlist" size="icon" variant="secondary">
                 <Bookmark size={18} />
               </Button>
@@ -54,9 +60,28 @@ export function Navbar() {
             <Button aria-label="Toggle theme" size="icon" variant="secondary" onClick={() => setLight((value) => !value)}>
               {light ? <Moon size={18} /> : <Sun size={18} />}
             </Button>
-            <Link href="/login" className="hidden sm:block">
-              <Button size="sm">Sign in</Button>
-            </Link>
+            <Show when="signed-out">
+              <SignInButton mode="modal" fallbackRedirectUrl="/">
+                <Button size="sm" className="px-3">
+                  <LogIn size={17} className="sm:hidden" />
+                  <span className="hidden sm:inline">Sign in</span>
+                </Button>
+              </SignInButton>
+            </Show>
+            <Show when="signed-in">
+              <UserButton
+                appearance={{
+                  elements: {
+                    avatarBox: "h-10 w-10 ring-1 ring-white/15",
+                    userButtonPopoverCard:
+                      "border border-white/10 bg-zinc-950 text-white shadow-2xl",
+                    userButtonPopoverActionButton: "text-zinc-200 hover:bg-white/10",
+                    userButtonPopoverActionButtonText: "text-zinc-200",
+                    userButtonPopoverFooter: "hidden",
+                  },
+                }}
+              />
+            </Show>
             <Button aria-label="Menu" size="icon" variant="ghost" className="md:hidden">
               <Menu size={20} />
             </Button>

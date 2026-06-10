@@ -14,7 +14,7 @@ export function Footer() {
         <div className="grid gap-2 text-sm">
           <Link href="/explore" className="text-zinc-400 hover:text-white">Explore</Link>
           <Link href="/trending" className="text-zinc-400 hover:text-white">Trending</Link>
-          <Link href="/watchlist" className="text-zinc-400 hover:text-white">Watchlist</Link>
+          <Link href="/watchlist" prefetch={false} className="text-zinc-400 hover:text-white">Watchlist</Link>
         </div>
         <div className="flex items-start gap-3">
           {[Send, MessageCircle, Radio, Code2].map((Icon, index) => (
