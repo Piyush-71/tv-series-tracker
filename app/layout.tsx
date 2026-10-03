@@ -8,7 +8,7 @@ import Script from "next/script";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://cinecount.example"),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"),
   title: {
     default: "Cinecount - Streaming Release Countdowns",
     template: "%s | Cinecount",
@@ -20,6 +20,7 @@ export const metadata: Metadata = {
     description: "A premium entertainment countdown and streaming discovery platform.",
     type: "website",
   },
+  manifest: "/manifest.webmanifest",
 };
 
 export default function RootLayout({

@@ -10,13 +10,11 @@ import { SearchOverlay } from "@/components/search/search-overlay";
 import { useTracker } from "@/hooks/use-tracker";
 
 const links = [
+  ["Airing Soon", "/soon"],
+  ["Upcoming", "/upcoming"],
+  ["Premieres", "/season-premieres"],
+  ["Recently Aired", "/aired"],
   ["Explore", "/explore"],
-  ["Trending", "/trending"],
-  ["Anime", "/category/anime"],
-  ["Movies", "/category/movie"],
-  ["Watchlist", "/watchlist"],
-  ["Calendar", "/calendar"],
-  ["Profile", "/profile"],
 ];
 
 export function Navbar() {
@@ -59,8 +57,8 @@ export function Navbar() {
             <Button aria-label="Open search" size="icon" variant="secondary" onClick={() => setSearchOpen(true)}>
               <Search size={18} />
             </Button>
-            <Link href="/watchlist" prefetch={false} className="hidden sm:contents">
-              <Button aria-label="Open watchlist" size="icon" variant="secondary">
+            <Link href="/my-countdowns" prefetch={false} className="hidden sm:contents">
+              <Button aria-label="Open My Countdowns" size="icon" variant="secondary">
                 <Bookmark size={18} />
               </Button>
             </Link>
@@ -121,6 +119,29 @@ export function Navbar() {
                 {label === "Profile" ? <UserRound size={17} /> : null}
               </Link>
             ))}
+            <Link
+              href="/my-countdowns"
+              prefetch={false}
+              onClick={() => setMenuOpen(false)}
+              className="flex items-center justify-between rounded-lg px-4 py-3 text-sm font-semibold text-zinc-200 hover:bg-white/10 hover:text-white"
+            >
+              My Countdowns <Bookmark size={17} />
+            </Link>
+            <Link
+              href="/calendar"
+              onClick={() => setMenuOpen(false)}
+              className="flex items-center justify-between rounded-lg px-4 py-3 text-sm font-semibold text-zinc-200 hover:bg-white/10 hover:text-white"
+            >
+              Calendar
+            </Link>
+            <Link
+              href="/profile"
+              prefetch={false}
+              onClick={() => setMenuOpen(false)}
+              className="flex items-center justify-between rounded-lg px-4 py-3 text-sm font-semibold text-zinc-200 hover:bg-white/10 hover:text-white"
+            >
+              Profile <UserRound size={17} />
+            </Link>
           </motion.nav>
         ) : null}
       </AnimatePresence>

@@ -8,19 +8,20 @@ export function Footer() {
         <div>
           <h2 className="text-xl font-black text-white">Cinecount</h2>
           <p className="mt-3 max-w-md text-sm leading-6 text-zinc-400">
-            Track upcoming premieres, live events, anime drops, and cinematic releases in one polished countdown hub.
+            Track exact TV episode airtimes, new series premieres, and personal countdowns in your local timezone.
           </p>
         </div>
         <div className="grid gap-2 text-sm">
-          <Link href="/explore" className="text-zinc-400 hover:text-white">Explore</Link>
           <Link href="/trending" className="text-zinc-400 hover:text-white">Trending</Link>
-          <Link href="/watchlist" prefetch={false} className="text-zinc-400 hover:text-white">Watchlist</Link>
+          <Link href="/upcoming" className="text-zinc-400 hover:text-white">Upcoming</Link>
+          <Link href="/soon" className="text-zinc-400 hover:text-white">Airing Soon</Link>
+          <Link href="/my-countdowns" prefetch={false} className="text-zinc-400 hover:text-white">My Countdowns</Link>
         </div>
         <div className="flex items-start gap-3">
           {[
             [Compass, "Explore", "/explore"],
             [CalendarDays, "Episode calendar", "/calendar"],
-            [ListVideo, "Watchlist", "/watchlist"],
+            [ListVideo, "My Countdowns", "/my-countdowns"],
             [UserRound, "Profile", "/profile"],
           ].map(([Icon, label, href]) => (
             <Link

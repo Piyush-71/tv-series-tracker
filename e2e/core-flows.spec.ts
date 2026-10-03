@@ -21,10 +21,22 @@ test("discovery filters can be applied and paginated", async ({ page }) => {
 
 test("saving a title writes portable tracker data", async ({ page }) => {
   await page.goto("/");
-  await page.locator('a[aria-label^="View "][aria-label$=" details"]').first().click();
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.getByRole("button", { name: /^Add .* to My Countdowns$/ }).first().click();
   const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("cinecount-tracker-v1") ?? "{}") as { watchlistIds?: string[] });
   expect(stored.watchlistIds?.length).toBe(1);
+});
+
+test("schedule dashboard opens an episode countdown detail", async ({ page }) => {
+  const pageErrors: string[] = [];
+  page.on("pageerror", (error) => pageErrors.push(error.message));
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "Trending TV Shows" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Upcoming TV Shows" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Airing Soon" })).toBeVisible();
+  await page.getByRole("link", { name: /^Open .* countdown$/ }).first().click();
+  await expect(page).toHaveURL(/\/show\/\d+\//);
+  await expect(page.getByText("Countdown to release")).toBeVisible();
+  expect(pageErrors).toEqual([]);
 });
 
 test("signed-out visitors are redirected away from the private watchlist", async ({ page }) => {

@@ -1,10 +1,10 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useEffect, useState } from "react";
 import { CalendarDays, Clock3 } from "lucide-react";
-import { getReleasePresentation, getTimeLeft, type ReleasePrecision, type TimeLeft } from "@/lib/release";
+import { getReleasePresentation, getTimeLeft, type ReleasePrecision } from "@/lib/release";
 import { useTracker } from "@/hooks/use-tracker";
+import { useNow } from "@/hooks/use-now";
 
 export function CountdownTimer({
   releaseDate,
@@ -22,27 +22,10 @@ export function CountdownTimer({
   const effectivePrecision = titleId && tracker.data.releaseOverrides[titleId] ? "datetime" : releasePrecision;
   const timeZone = tracker.data.preferences.timeZone || "UTC";
   const presentation = getReleasePresentation({ releaseDate: effectiveReleaseDate, releasePrecision: effectivePrecision, timeZone });
-  const [timeLeft, setTimeLeft] = useState<TimeLeft>({
-    days: 0,
-    hours: 0,
-    minutes: 0,
-    seconds: 0,
-  });
-
-  useEffect(() => {
-    if (!presentation.showCountdown) return;
-    const update = () => {
-      setTimeLeft(getTimeLeft(effectiveReleaseDate));
-    };
-
-    const timeout = window.setTimeout(update, 0);
-    const interval = window.setInterval(update, 1000);
-
-    return () => {
-      window.clearTimeout(timeout);
-      window.clearInterval(interval);
-    };
-  }, [effectiveReleaseDate, presentation.showCountdown]);
+  const now = useNow();
+  const timeLeft = now
+    ? getTimeLeft(effectiveReleaseDate, new Date(now))
+    : { days: 0, hours: 0, minutes: 0, seconds: 0 };
 
   if (!presentation.showCountdown) {
     return (

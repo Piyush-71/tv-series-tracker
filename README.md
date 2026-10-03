@@ -1,14 +1,17 @@
 # Cinecount
 
-Cinecount is a cinematic release discovery and personal tracking application for movies, television, and anime. It combines TMDB catalog data with countdowns, episode progress, watch history, ratings, notes, reminders, and portable browser-local profiles.
+Cinecount is a schedule-first TV discovery and personal tracking application. It combines exact episode airtimes and live countdowns with TMDB discovery, episode progress, watch history, ratings, notes, reminders, and portable browser-local profiles.
 
 ## Product capabilities
 
-- Trending and upcoming release catalog powered by TMDB, with a built-in fallback catalog
+- A schedule dashboard for trending episodes, series premieres, season premieres, soon-to-air episodes, and recently aired episodes
+- Exact episode airtimes powered by Simkl's public TV calendar, with a bundled offline fallback schedule
+- Shared live countdown clock and automatic local-timezone formatting
+- Trending and upcoming release discovery powered by TMDB, with a built-in fallback catalog
 - Search, category pages, title details, trailers, cast, streaming providers, and recommendations
 - Server-backed discovery filters for type, genre, year, country, original language, provider, and availability
 - Popularity, release-date, rating, and alphabetical sorting with paginated “load more” results
-- Honest release displays: date-only data is labeled as a date rather than shown as a precise countdown
+- Honest release displays: exact Simkl airtimes receive live countdowns, while TMDB date-only data stays labeled as a date
 - User-selectable regional dates, custom local release times, and visible timezone information
 - Clerk authentication for private watchlist and profile routes
 - Browser-local watchlists, watched history, recently viewed titles, ratings, private notes, and preferences
@@ -74,7 +77,9 @@ npx playwright install chromium
 
 ## Architecture
 
-`app/` contains server-rendered routes and JSON route handlers. Catalog reads are coordinated by `lib/tmdb/service.ts`, while `client.ts` owns TMDB authentication, retry behavior, and Next.js revalidation. `mapper.ts` is the boundary that converts TMDB response shapes into the application’s `MediaTitle` domain model.
+`app/` contains server-rendered routes and JSON route handlers. Schedule reads are coordinated through the `ScheduleService` interface in `lib/schedule/service.ts`; `simkl.ts` maps and caches the public calendar and falls back to a bundled schedule if the upstream feed is unavailable. Catalog reads remain coordinated by `lib/tmdb/service.ts`, while `client.ts` owns TMDB authentication, retry behavior, and Next.js revalidation. `mapper.ts` converts TMDB response shapes into the application’s `MediaTitle` domain model.
+
+The schedule UI uses one shared external-store clock from `hooks/use-now.ts`, so a dashboard full of countdowns creates one timer rather than one interval per card.
 
 Interactive tracking lives behind `useTracker`. The hook exposes one synchronized external store backed by the versioned `cinecount-tracker-v1` local-storage document. It also migrates the original `cinecount-watchlist` value. Pure tracker behavior is kept in `lib/tracker.ts` so it can later sit behind a database adapter without changing the UI vocabulary.
 
@@ -82,7 +87,12 @@ The principal routes are:
 
 | Route | Purpose |
 | --- | --- |
-| `/` | Featured and categorized releases |
+| `/` | Schedule dashboard with exact local airtimes and countdowns |
+| `/soon` | Episodes airing in the next 24 hours |
+| `/upcoming` | Upcoming series premieres |
+| `/season-premieres` | Upcoming new-season premieres |
+| `/aired` | Recently aired episodes |
+| `/show/[id]/[slug]` | Show countdown and announced episode schedule |
 | `/explore` | Paginated, filterable discovery |
 | `/title/[slug]` | Metadata, release schedule, personal controls, and episodes |
 | `/watchlist` | Private saved-title collection |
@@ -99,7 +109,7 @@ The current iteration intentionally does not use an application database. Person
 
 Browser reminders are evaluated while a Cinecount page is open. Reliable background email or push delivery requires the planned database-backed tracker and job system.
 
-TMDB commonly supplies calendar dates without exact airtimes. Cinecount preserves that distinction and only runs second-level countdowns for exact timestamps or user-provided local times.
+Simkl schedule entries include exact timestamps and power the countdown experience. TMDB commonly supplies calendar dates without exact airtimes; Cinecount preserves that distinction and only runs second-level countdowns for exact timestamps or user-provided local times.
 
 ## API behavior
 
@@ -111,7 +121,7 @@ Public JSON endpoints validate and bound input, return structured `{ error: { co
 - Portable tracker data and episode progress
 - TMDB-to-domain mapping
 - Query validation and rate limiting
-- Mobile navigation, discovery filtering, saving, and authentication redirects in a real browser
+- Schedule dashboard and detail navigation, mobile navigation, discovery filtering, saving, and authentication redirects in a real browser
 
 ## Planned persistence boundary
 
