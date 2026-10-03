@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
 import { WatchlistClient } from "@/components/media/watchlist-client";
 import { getAllTitles } from "@/lib/tmdb/service";
-import { getScheduleView } from "@/lib/schedule";
+import { getFollowableSchedule } from "@/lib/schedule";
 
 export const metadata: Metadata = {
   title: "Watchlist",
 };
 
 export default async function WatchlistPage() {
-  const [items, schedule] = await Promise.all([getAllTitles(), getScheduleView("airing-soon", 200)]);
+  const [items, schedule] = await Promise.all([getAllTitles(), getFollowableSchedule()]);
 
   return (
     <section className="px-4 pb-14 pt-28 sm:px-6 lg:px-10">

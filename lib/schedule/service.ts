@@ -7,6 +7,7 @@ export type ScheduleSource = {
 export type ScheduleService = {
   getDashboard(now?: Date, limit?: number): Promise<ScheduleDashboard>;
   getView(view: ScheduleView, now?: Date, limit?: number): Promise<ScheduledEpisode[]>;
+  getFollowable(now?: Date, limit?: number): Promise<ScheduledEpisode[]>;
   getShow(showId: string, now?: Date): Promise<ShowSchedule | undefined>;
 };
 
@@ -51,6 +52,13 @@ export function createScheduleService(source: ScheduleSource): ScheduleService {
       return { trending, upcoming, airingSoon };
     },
     getView,
+    async getFollowable(now = new Date(), limit = 1_000) {
+      const items = await source.list();
+      const nowTime = now.getTime();
+      const future = items.filter((item) => time(item) >= nowTime).sort(byAirtime);
+      const past = items.filter((item) => time(item) < nowTime).sort(byLatest);
+      return uniqueShows([...future, ...past]).slice(0, limit);
+    },
     async getShow(showId, now = new Date()) {
       const episodes = (await source.list()).filter((item) => item.showId === showId).sort(byAirtime);
       if (!episodes.length) return undefined;

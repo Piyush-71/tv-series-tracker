@@ -4,13 +4,17 @@ import Link from "next/link";
 import { FollowShowButton } from "@/components/schedule/follow-show-button";
 import { ScheduleCountdown } from "@/components/schedule/schedule-countdown";
 import { TimezoneStatus } from "@/components/schedule/timezone-status";
-import { formatAirtime } from "@/lib/schedule/format";
+import { formatAirtime, getScheduleTrackerId } from "@/lib/schedule/format";
 import type { ScheduledEpisode, ShowSchedule } from "@/types/schedule";
 
 export function ShowScheduleView({ show }: { show: ShowSchedule }) {
   const focus = show.next ?? show.previous ?? show.premiere;
   if (!focus) return null;
-  const trackerId = show.tmdbId ? `tv-${show.tmdbId}` : `simkl-${show.showId}`;
+  const trackerId = getScheduleTrackerId(show);
+  const nextAirsAt = show.next?.airsAt;
+  const visibleEpisodes = nextAirsAt
+    ? show.episodes.filter((episode) => episode.airsAt >= nextAirsAt).slice(0, 12)
+    : show.episodes.slice(-12);
 
   return (
     <div className="relative overflow-hidden px-4 pb-20 pt-28 sm:px-6 lg:px-10">
@@ -47,9 +51,10 @@ export function ShowScheduleView({ show }: { show: ShowSchedule }) {
       </section>
 
       <section className="relative mx-auto mt-12 max-w-6xl rounded-2xl border border-white/10 bg-white/[0.035] p-6">
-        <h2 className="text-xl font-black text-white">Announced episode schedule</h2>
+        <h2 className="text-xl font-black text-white">{show.next ? "Next announced episodes" : "Latest announced episodes"}</h2>
+        <p className="mt-1 text-sm text-zinc-500">Showing up to 12 episodes from the latest published schedule.</p>
         <div className="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {show.episodes.slice(-12).map((episode) => (
+          {visibleEpisodes.map((episode) => (
             <div key={episode.id} className="flex items-center justify-between gap-3 rounded-lg border border-white/8 bg-black/20 px-3 py-2.5 text-sm">
               <span className="font-bold text-zinc-200">S{episode.seasonNumber} E{episode.episodeNumber}</span>
               <span className="text-xs text-zinc-500">{formatAirtime(episode.airsAt)}</span>

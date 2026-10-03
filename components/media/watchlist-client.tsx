@@ -8,13 +8,14 @@ import { useWatchlist } from "@/hooks/use-watchlist";
 import { MediaGrid } from "@/components/media/media-grid";
 import { ScheduleCard } from "@/components/schedule/schedule-card";
 import { Button } from "@/components/ui/button";
+import { getScheduleTrackerId } from "@/lib/schedule/format";
 import type { ScheduledEpisode } from "@/types/schedule";
 
 export function WatchlistClient({ items, schedule = [] }: { items: MediaTitle[]; schedule?: ScheduledEpisode[] }) {
   const watchlist = useWatchlist();
   const saved = items.filter((item) => watchlist.ids.includes(item.id));
   const followedShows = schedule.filter((episode, index) => {
-    const trackerId = episode.tmdbId ? `tv-${episode.tmdbId}` : `simkl-${episode.showId}`;
+    const trackerId = getScheduleTrackerId(episode);
     return watchlist.ids.includes(trackerId) && schedule.findIndex((item) => item.showId === episode.showId) === index;
   });
   const [shared, setShared] = useState(false);

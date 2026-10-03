@@ -5,12 +5,12 @@ import Image from "next/image";
 import Link from "next/link";
 import { ScheduleCountdown } from "@/components/schedule/schedule-countdown";
 import { useWatchlist } from "@/hooks/use-watchlist";
-import { formatAirtime } from "@/lib/schedule/format";
+import { formatAirtime, getScheduleTrackerId } from "@/lib/schedule/format";
 import type { ScheduledEpisode } from "@/types/schedule";
 
 export function ScheduleCard({ episode }: { episode: ScheduledEpisode }) {
   const watchlist = useWatchlist();
-  const trackerId = episode.tmdbId ? `tv-${episode.tmdbId}` : `simkl-${episode.showId}`;
+  const trackerId = getScheduleTrackerId(episode);
   const saved = watchlist.has(trackerId);
 
   return (

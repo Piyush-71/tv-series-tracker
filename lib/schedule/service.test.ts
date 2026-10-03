@@ -71,4 +71,16 @@ describe("schedule module", () => {
     await expect(schedule.getView("recently-aired", now, 10)).resolves.toMatchObject([{ id: "recent" }, { id: "old-premiere" }]);
     await expect(schedule.getView("latest-premieres", now, 10)).resolves.toMatchObject([{ id: "old-premiere" }]);
   });
+
+  it("keeps every followable show with its next or latest aired episode", async () => {
+    const items = [
+      episode({ id: "next", showId: "returning", title: "Returning", airsAt: "2026-10-04T12:00:00.000Z" }),
+      episode({ id: "later", showId: "returning", title: "Returning", airsAt: "2026-10-11T12:00:00.000Z" }),
+      episode({ id: "recent", showId: "aired", title: "Aired", airsAt: "2026-10-03T10:00:00.000Z" }),
+    ];
+
+    const schedule = createScheduleService(source(items));
+
+    await expect(schedule.getFollowable(now)).resolves.toMatchObject([{ id: "next" }, { id: "recent" }]);
+  });
 });
