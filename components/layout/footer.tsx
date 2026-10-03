@@ -1,4 +1,4 @@
-import { Code2, MessageCircle, Radio, Send } from "lucide-react";
+import { CalendarDays, Compass, ListVideo, UserRound } from "lucide-react";
 import Link from "next/link";
 
 export function Footer() {
@@ -17,15 +17,20 @@ export function Footer() {
           <Link href="/watchlist" prefetch={false} className="text-zinc-400 hover:text-white">Watchlist</Link>
         </div>
         <div className="flex items-start gap-3">
-          {[Send, MessageCircle, Radio, Code2].map((Icon, index) => (
-            <a
-              key={index}
-              href="#"
-              aria-label="Social link"
+          {[
+            [Compass, "Explore", "/explore"],
+            [CalendarDays, "Episode calendar", "/calendar"],
+            [ListVideo, "Watchlist", "/watchlist"],
+            [UserRound, "Profile", "/profile"],
+          ].map(([Icon, label, href]) => (
+            <Link
+              key={String(href)}
+              href={String(href)}
+              aria-label={String(label)}
               className="grid h-10 w-10 place-items-center rounded-lg border border-white/10 bg-white/5 text-zinc-300 transition hover:border-violet-300/50 hover:text-white"
             >
               <Icon size={18} />
-            </a>
+            </Link>
           ))}
         </div>
       </div>

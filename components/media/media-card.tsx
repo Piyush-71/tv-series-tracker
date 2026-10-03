@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Bell, Bookmark, Play, Star } from "lucide-react";
+import { Bookmark, Play, Star } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import type { MediaTitle } from "@/types/media";
@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatReleaseDate } from "@/lib/utils";
 import { useWatchlist } from "@/hooks/use-watchlist";
+import { NotifyButton } from "@/components/tracker/notify-button";
 
 export function MediaCard({ title }: { title: MediaTitle }) {
   const watchlist = useWatchlist();
@@ -36,7 +37,7 @@ export function MediaCard({ title }: { title: MediaTitle }) {
           <div className="absolute inset-0 bg-gradient-to-t from-black via-black/10 to-transparent" />
           <Badge className="absolute left-3 top-3 capitalize">{title.type}</Badge>
           <div className="absolute bottom-3 left-3 right-3">
-            <CountdownTimer releaseDate={title.releaseDate} compact />
+            <CountdownTimer titleId={title.id} releaseDate={title.releaseDate} releasePrecision={title.releasePrecision} compact />
           </div>
         </div>
       </Link>
@@ -54,10 +55,7 @@ export function MediaCard({ title }: { title: MediaTitle }) {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button className="flex-1" size="sm" variant="secondary">
-            <Bell size={15} />
-            Notify
-          </Button>
+          <NotifyButton title={title} size="sm" compact />
           <Button
             aria-label={saved ? "Remove from watchlist" : "Save to watchlist"}
             size="icon"

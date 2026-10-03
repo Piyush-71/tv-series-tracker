@@ -1,11 +1,18 @@
 import { cache } from "react";
-import { mediaTitles as fallbackTitles } from "@/data/media";
+import { mediaTitles as staticFallbackTitles } from "@/data/media";
 import type { MediaTitle } from "@/types/media";
 import { tmdbFetch, hasTmdbCredentials } from "@/lib/tmdb/client";
-import { makeGenreMap, parseTmdbSlug, toMediaTitle } from "@/lib/tmdb/mapper";
-import type { CatalogGroup, TmdbDetails, TmdbGenre, TmdbListItem, TmdbListResponse, TmdbMediaType, TmdbQuery } from "@/lib/tmdb/types";
+import { makeGenreMap, parseTmdbSlug, toMediaEpisode, toMediaTitle } from "@/lib/tmdb/mapper";
+import type { CatalogGroup, DiscoveryFilters, DiscoveryPage, TmdbDetails, TmdbGenre, TmdbListItem, TmdbListResponse, TmdbMediaType, TmdbProvider, TmdbQuery, TmdbSeason } from "@/lib/tmdb/types";
 
 const today = new Date().toISOString().slice(0, 10);
+const fallbackAnchor = new Date();
+fallbackAnchor.setUTCHours(20, 0, 0, 0);
+const fallbackOffsets = [2, 4, 7, 10, 14, 21, 28, 35];
+const fallbackTitles = staticFallbackTitles.map((title, index) => ({
+  ...title,
+  releaseDate: new Date(fallbackAnchor.getTime() + fallbackOffsets[index] * 86_400_000).toISOString(),
+}));
 
 async function getGenres() {
   const [movie, tv] = await Promise.all([
@@ -97,7 +104,7 @@ export const getTitleBySlug = cache(async (slug: string) => {
   try {
     const genreMap = await getGenres();
     const details = await tmdbFetch<TmdbDetails>(`/${parsed.mediaType}/${parsed.id}`, {
-      params: { append_to_response: "videos,credits,watch/providers,similar", language: "en-US" },
+      params: { append_to_response: "videos,credits,watch/providers,similar,release_dates,content_ratings", language: "en-US" },
       revalidate: 60 * 60,
     });
 
@@ -137,6 +144,19 @@ export async function getSimilarTitles(slug: string) {
   }
 }
 
+export async function getSeasonEpisodes(slug: string, seasonNumber: number) {
+  const parsed = parseTmdbSlug(slug);
+  if (!parsed || parsed.mediaType !== "tv" || !Number.isInteger(seasonNumber) || seasonNumber < 0) return [];
+  if (!hasTmdbCredentials()) return [];
+
+  const season = await tmdbFetch<TmdbSeason>(`/tv/${parsed.id}/season/${seasonNumber}`, {
+    params: { language: "en-US" },
+    revalidate: 60 * 60,
+  });
+
+  return season.episodes.map(toMediaEpisode);
+}
+
 export async function searchTitles(query: string) {
   if (!hasTmdbCredentials()) {
     const value = query.trim().toLowerCase();
@@ -171,6 +191,118 @@ export async function getTitlesByQuery(query: TmdbQuery = {}) {
     .sort((a, b) => b.popularity - a.popularity);
 }
 
+export async function getDiscoveryPage(query: TmdbQuery = {}): Promise<DiscoveryPage> {
+  const page = query.page ?? 1;
+  if (!hasTmdbCredentials()) return getFallbackDiscoveryPage(query);
+
+  try {
+    return await getTmdbDiscoveryPage(query, page);
+  } catch (error) {
+    console.error(JSON.stringify({ event: "tmdb.discovery_failed", page, error: String(error) }));
+    return getFallbackDiscoveryPage(query);
+  }
+}
+
+async function getTmdbDiscoveryPage(query: TmdbQuery, page: number): Promise<DiscoveryPage> {
+  const genreMap = await getGenres();
+  const genreId = query.genre
+    ? Array.from(genreMap.entries()).find(([, name]) => name.toLowerCase() === query.genre?.toLowerCase())?.[0]
+    : undefined;
+
+  if (query.query) {
+    const response = await tmdbFetch<TmdbListResponse<TmdbListItem>>("/search/multi", {
+      params: { query: query.query, include_adult: false, language: "en-US", page },
+      revalidate: 60 * 10,
+    });
+    const results = sortDiscoveryItems(
+      response.results
+        .filter((item) => item.media_type === "movie" || item.media_type === "tv")
+        .filter((item) => item.poster_path && item.backdrop_path)
+        .map((item) => toMediaTitle(item, genreMap))
+        .filter((item) => !query.type || query.type === "all" || item.type === query.type)
+        .filter((item) => !query.genre || item.genres.some((genre) => genre.toLowerCase() === query.genre?.toLowerCase()))
+        .filter((item) => !query.language || item.originalLanguage === query.language)
+        .filter((item) => !query.country || item.originCountries?.includes(query.country)),
+      query.sort,
+    );
+    return { results, page: response.page, totalPages: response.total_pages, totalResults: response.total_results };
+  }
+
+  const requestedTypes: TmdbMediaType[] = query.type === "movie" ? ["movie"] : query.type === "tv" || query.type === "anime" ? ["tv"] : ["movie", "tv"];
+  const responses = await Promise.all(requestedTypes.map(async (mediaType) => {
+    const dateField = mediaType === "movie" ? "primary_release_date" : "first_air_date";
+    const titleField = mediaType === "movie" ? "original_title" : "original_name";
+    const sortBy = query.sort === "release_date" ? `${dateField}.asc` : query.sort === "rating" ? "vote_average.desc" : query.sort === "title" ? `${titleField}.asc` : "popularity.desc";
+    const params: Record<string, string | number | boolean | undefined> = {
+      include_adult: false,
+      include_video: false,
+      language: "en-US",
+      page,
+      sort_by: sortBy,
+      with_genres: query.type === "anime" ? [16, genreId].filter(Boolean).join(",") : genreId,
+      with_origin_country: query.type === "anime" ? "JP" : query.country,
+      with_original_language: query.language,
+      with_watch_providers: query.provider,
+      watch_region: query.country ?? "US",
+      with_watch_monetization_types: query.availability,
+      "vote_count.gte": query.sort === "rating" ? 50 : undefined,
+    };
+    if (query.year) params[mediaType === "movie" ? "primary_release_year" : "first_air_date_year"] = query.year;
+
+    const response = await tmdbFetch<TmdbListResponse<TmdbListItem>>(`/discover/${mediaType}`, { params, revalidate: 60 * 30 });
+    return { response, mediaType };
+  }));
+
+  const results = sortDiscoveryItems(
+    responses.flatMap(({ response, mediaType }) => response.results
+      .filter((item) => item.poster_path && item.backdrop_path)
+      .map((item) => toMediaTitle(item, genreMap, mediaType))),
+    query.sort,
+  );
+
+  return {
+    results: uniqueById(results),
+    page,
+    totalPages: Math.max(...responses.map(({ response }) => response.total_pages), 1),
+    totalResults: responses.reduce((sum, { response }) => sum + response.total_results, 0),
+  };
+}
+
+export const getDiscoveryFilters = cache(async (): Promise<DiscoveryFilters> => {
+  const items = await getAllTitles();
+  const currentYear = new Date().getFullYear();
+  const years = Array.from(new Set(items.map((item) => new Date(item.releaseDate).getFullYear()).filter(Number.isFinite)));
+  const base: DiscoveryFilters = {
+    genres: Array.from(new Set(items.flatMap((item) => item.genres))).sort(),
+    years: Array.from(new Set([...years, currentYear - 1, currentYear, currentYear + 1, currentYear + 2])).sort((a, b) => b - a),
+    countries: [
+      { code: "US", label: "United States" }, { code: "GB", label: "United Kingdom" },
+      { code: "IN", label: "India" }, { code: "JP", label: "Japan" }, { code: "KR", label: "South Korea" },
+      { code: "FR", label: "France" }, { code: "DE", label: "Germany" }, { code: "CA", label: "Canada" },
+    ],
+    languages: [
+      { code: "en", label: "English" }, { code: "hi", label: "Hindi" }, { code: "ja", label: "Japanese" },
+      { code: "ko", label: "Korean" }, { code: "es", label: "Spanish" }, { code: "fr", label: "French" },
+      { code: "de", label: "German" }, { code: "zh", label: "Chinese" },
+    ],
+    providers: [],
+  };
+  if (!hasTmdbCredentials()) return base;
+
+  try {
+    const [movie, tv] = await Promise.all([
+      tmdbFetch<{ results: TmdbProvider[] }>("/watch/providers/movie", { params: { watch_region: "US" }, revalidate: 60 * 60 * 24 }),
+      tmdbFetch<{ results: TmdbProvider[] }>("/watch/providers/tv", { params: { watch_region: "US" }, revalidate: 60 * 60 * 24 }),
+    ]);
+    base.providers = Array.from(new Map([...movie.results, ...tv.results].map((provider) => [provider.provider_id, provider])).values())
+      .map((provider) => ({ id: provider.provider_id, name: provider.provider_name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  } catch (error) {
+    console.error(JSON.stringify({ event: "tmdb.providers_failed", error: String(error) }));
+  }
+  return base;
+});
+
 export async function getGenresFromCatalog() {
   const items = await getAllTitles();
   return Array.from(new Set(items.flatMap((item) => item.genres))).sort();
@@ -180,12 +312,42 @@ function uniqueById(items: MediaTitle[]) {
   return Array.from(new Map(items.map((item) => [item.id, item])).values());
 }
 
+function sortDiscoveryItems(items: MediaTitle[], sort: TmdbQuery["sort"] = "popularity") {
+  return [...items].sort((a, b) => {
+    if (sort === "release_date") return new Date(a.releaseDate).getTime() - new Date(b.releaseDate).getTime();
+    if (sort === "rating") return b.rating - a.rating;
+    if (sort === "title") return a.title.localeCompare(b.title);
+    return b.popularity - a.popularity;
+  });
+}
+
+function getFallbackDiscoveryPage(query: TmdbQuery): DiscoveryPage {
+  const page = query.page ?? 1;
+  const pageSize = 8;
+  const value = query.query?.toLowerCase();
+  const filtered = sortDiscoveryItems(fallbackTitles
+    .filter((item) => !query.type || query.type === "all" || item.type === query.type)
+    .filter((item) => !query.genre || item.genres.some((genre) => genre.toLowerCase() === query.genre?.toLowerCase()))
+    .filter((item) => !query.year || new Date(item.releaseDate).getFullYear() === query.year)
+    .filter((item) => !value || [item.title, item.description, item.platform, ...item.genres].join(" ").toLowerCase().includes(value)), query.sort);
+  return {
+    results: filtered.slice((page - 1) * pageSize, page * pageSize),
+    page,
+    totalPages: Math.max(Math.ceil(filtered.length / pageSize), 1),
+    totalResults: filtered.length,
+  };
+}
+
 function getFallbackCatalog(): CatalogGroup {
   const sorted = [...fallbackTitles].sort((a, b) => b.popularity - a.popularity);
+  const now = Date.now();
   return {
     featured: sorted[0],
     trending: sorted,
-    thisWeek: fallbackTitles.filter((item) => new Date(item.releaseDate) < new Date("2026-06-01")),
+    thisWeek: fallbackTitles.filter((item) => {
+      const release = new Date(item.releaseDate).getTime();
+      return release >= now && release <= now + 7 * 86_400_000;
+    }),
     anticipated: fallbackTitles.filter((item) => item.rating >= 8.7),
     anime: fallbackTitles.filter((item) => item.type === "anime"),
     movies: fallbackTitles.filter((item) => item.type === "movie"),

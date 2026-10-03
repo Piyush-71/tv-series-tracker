@@ -1,5 +1,6 @@
-import type { MediaTitle, MediaType } from "@/types/media";
-import type { TmdbCastMember, TmdbDetails, TmdbGenre, TmdbListItem, TmdbMediaType, TmdbVideo } from "@/lib/tmdb/types";
+import type { MediaEpisode, MediaTitle, MediaType, ReleaseDateOption } from "@/types/media";
+import type { TmdbCastMember, TmdbDetails, TmdbEpisode, TmdbGenre, TmdbListItem, TmdbMediaType, TmdbVideo } from "@/lib/tmdb/types";
+import { inferReleasePrecision } from "@/lib/release";
 
 const imageBase = "https://image.tmdb.org/t/p";
 const fallbackPoster =
@@ -51,6 +52,55 @@ function getPlatform(details?: TmdbDetails) {
   return provider?.provider_name ?? "TMDB";
 }
 
+function getProviders(details?: TmdbDetails) {
+  const us = details?.["watch/providers"]?.results?.US;
+  const providers = [...(us?.flatrate ?? []), ...(us?.buy ?? []), ...(us?.rent ?? [])];
+  return Array.from(new Map(providers.map((provider) => [provider.provider_id, provider])).values()).map((provider) => ({
+    id: provider.provider_id,
+    name: provider.provider_name,
+    logo: provider.logo_path ? tmdbImage(provider.logo_path, "w92") : undefined,
+  }));
+}
+
+export function toMediaEpisode(episode: TmdbEpisode): MediaEpisode {
+  return {
+    id: `s${episode.season_number}e${episode.episode_number}`,
+    name: episode.name,
+    overview: episode.overview || "No episode synopsis is available yet.",
+    airDate: episode.air_date,
+    episodeNumber: episode.episode_number,
+    seasonNumber: episode.season_number,
+    runtime: episode.runtime,
+    still: episode.still_path ? tmdbImage(episode.still_path, "w780", fallbackBackdrop) : undefined,
+    rating: Number((episode.vote_average ?? 0).toFixed(1)),
+  };
+}
+
+function getReleaseDates(details?: TmdbDetails): ReleaseDateOption[] {
+  const usDates = details?.release_dates?.results.find((result) => result.iso_3166_1 === "US")?.release_dates ?? [];
+  const kinds: Record<number, ReleaseDateOption["kind"]> = {
+    1: "premiere",
+    2: "theatrical",
+    3: "theatrical",
+    4: "digital",
+    5: "physical",
+    6: "television",
+  };
+  return usDates.map((release) => ({
+    kind: kinds[release.type] ?? "premiere",
+    date: release.release_date,
+    region: "US",
+    note: release.note || undefined,
+  }));
+}
+
+function getCertification(details?: TmdbDetails) {
+  const movieCertification = details?.release_dates?.results
+    .find((result) => result.iso_3166_1 === "US")
+    ?.release_dates.find((release) => release.certification)?.certification;
+  return movieCertification || details?.content_ratings?.results.find((result) => result.iso_3166_1 === "US")?.rating;
+}
+
 function mapCast(cast: TmdbCastMember[] = []) {
   return cast.slice(0, 6).map((person) => ({
     name: person.name,
@@ -74,6 +124,8 @@ export function toMediaTitle(
 ): MediaTitle {
   const mediaType = toMediaType(item, fallbackType);
   const releaseDate = item.release_date || item.first_air_date || new Date().toISOString();
+  const details = "videos" in item || "number_of_seasons" in item ? (item as TmdbDetails) : undefined;
+  const usProviders = details?.["watch/providers"]?.results?.US;
 
   return {
     id: `${getTmdbMediaType(item, fallbackType)}-${item.id}`,
@@ -82,14 +134,28 @@ export function toMediaTitle(
     type: mediaType,
     description: item.overview || "No synopsis is available yet.",
     releaseDate,
+    releasePrecision: inferReleasePrecision(releaseDate),
+    releaseDates: getReleaseDates(details),
     genres: genreNames(item, genreMap, mediaType),
     poster: tmdbImage(item.poster_path, "w780"),
     backdrop: tmdbImage(item.backdrop_path, "w1280", fallbackBackdrop),
-    trailerUrl: getTrailerUrl("videos" in item ? item.videos?.results : undefined),
+    trailerUrl: getTrailerUrl(details?.videos?.results),
     rating: Number((item.vote_average ?? 0).toFixed(1)),
-    platform: getPlatform("videos" in item ? item : undefined),
-    cast: mapCast("credits" in item ? item.credits?.cast : undefined),
+    platform: getPlatform(details),
+    cast: mapCast(details?.credits?.cast),
     popularity: item.popularity ?? 0,
+    originalLanguage: item.original_language,
+    originCountries: item.origin_country ?? [],
+    status: details?.status,
+    runtime: details?.runtime ?? details?.episode_run_time?.[0],
+    certification: getCertification(details),
+    creators: details?.created_by?.map((creator) => creator.name) ?? [],
+    seasonCount: details?.number_of_seasons,
+    episodeCount: details?.number_of_episodes,
+    nextEpisode: details?.next_episode_to_air ? toMediaEpisode(details.next_episode_to_air) : undefined,
+    providers: getProviders(details),
+    providerLink: usProviders?.link,
+    homepage: details?.homepage || undefined,
   };
 }
 

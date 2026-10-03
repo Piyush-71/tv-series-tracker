@@ -1,36 +1,118 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Cinecount
 
-## Getting Started
+Cinecount is a cinematic release discovery and personal tracking application for movies, television, and anime. It combines TMDB catalog data with countdowns, episode progress, watch history, ratings, notes, reminders, and portable browser-local profiles.
 
-First, run the development server:
+## Product capabilities
+
+- Trending and upcoming release catalog powered by TMDB, with a built-in fallback catalog
+- Search, category pages, title details, trailers, cast, streaming providers, and recommendations
+- Server-backed discovery filters for type, genre, year, country, original language, provider, and availability
+- Popularity, release-date, rating, and alphabetical sorting with paginated “load more” results
+- Honest release displays: date-only data is labeled as a date rather than shown as a precise countdown
+- User-selectable regional dates, custom local release times, and visible timezone information
+- Clerk authentication for private watchlist and profile routes
+- Browser-local watchlists, watched history, recently viewed titles, ratings, private notes, and preferences
+- Season/episode progress and a next-episode calendar for saved series
+- Browser reminders while Cinecount is open, with delivery status recorded locally
+- Shareable watchlist links plus JSON import/export
+- Persistent dark, light, and system themes; responsive mobile navigation; offline/error/empty states
+
+## Stack
+
+- Next.js 16 App Router, React 19, and TypeScript
+- Tailwind CSS 4
+- Clerk authentication
+- TMDB API
+- Framer Motion and Lucide icons
+- Vitest for domain/API tests
+- Playwright for browser acceptance tests
+
+## Local setup
+
+1. Install dependencies:
+
+   ```bash
+   npm install
+   ```
+
+2. Copy `.env.example` to `.env` and configure Clerk:
+
+   ```dotenv
+   NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=
+   CLERK_SECRET_KEY=
+   NEXT_PUBLIC_CLERK_SIGN_IN_URL=/login
+   NEXT_PUBLIC_CLERK_SIGN_UP_URL=/login
+   ```
+
+3. Optionally add `TMDB_API_READ_ACCESS_TOKEN`. Without it, Cinecount runs against the bundled fallback catalog.
+
+4. Start the application:
+
+   ```bash
+   npm run dev
+   ```
+
+Open [http://localhost:3000](http://localhost:3000).
+
+## Commands
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm run dev        # development server
+npm run build      # production build
+npm run start      # production server
+npm run lint       # ESLint
+npm test           # Vitest suite
+npm run test:watch # Vitest watch mode
+npm run test:e2e   # Playwright browser tests
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Install the Playwright browser once before running E2E tests:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npx playwright install chromium
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Architecture
 
-## Learn More
+`app/` contains server-rendered routes and JSON route handlers. Catalog reads are coordinated by `lib/tmdb/service.ts`, while `client.ts` owns TMDB authentication, retry behavior, and Next.js revalidation. `mapper.ts` is the boundary that converts TMDB response shapes into the application’s `MediaTitle` domain model.
 
-To learn more about Next.js, take a look at the following resources:
+Interactive tracking lives behind `useTracker`. The hook exposes one synchronized external store backed by the versioned `cinecount-tracker-v1` local-storage document. It also migrates the original `cinecount-watchlist` value. Pure tracker behavior is kept in `lib/tracker.ts` so it can later sit behind a database adapter without changing the UI vocabulary.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+The principal routes are:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+| Route | Purpose |
+| --- | --- |
+| `/` | Featured and categorized releases |
+| `/explore` | Paginated, filterable discovery |
+| `/title/[slug]` | Metadata, release schedule, personal controls, and episodes |
+| `/watchlist` | Private saved-title collection |
+| `/calendar` | Upcoming episodes for saved TV titles |
+| `/profile` | History, preferences, reminders, and import/export |
+| `/shared?ids=…` | Read-only shared collection |
+| `/api/titles` | Validated, rate-limited discovery API |
+| `/api/search` | Validated, rate-limited search API |
+| `/api/calendar` | Next episodes for a bounded list of title IDs |
 
-## Deploy on Vercel
+## Data and privacy
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+The current iteration intentionally does not use an application database. Personal tracker data remains in the current browser and is not synchronized by Clerk. The Profile page clearly labels this behavior and provides JSON backup/restore.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Browser reminders are evaluated while a Cinecount page is open. Reliable background email or push delivery requires the planned database-backed tracker and job system.
+
+TMDB commonly supplies calendar dates without exact airtimes. Cinecount preserves that distinction and only runs second-level countdowns for exact timestamps or user-provided local times.
+
+## API behavior
+
+Public JSON endpoints validate and bound input, return structured `{ error: { code, message } }` failures, and use an in-memory per-instance rate limiter. Production deployments with multiple instances should replace this limiter with shared infrastructure. TMDB and notification failures emit structured JSON log events suitable for a log drain or monitoring service.
+
+## Testing seams
+
+- Release presentation and countdown calculations
+- Portable tracker data and episode progress
+- TMDB-to-domain mapping
+- Query validation and rate limiting
+- Mobile navigation, discovery filtering, saving, and authentication redirects in a real browser
+
+## Planned persistence boundary
+
+The next persistence phase should replace the browser adapter with a user-scoped database implementation for watchlists, progress, reminders, ratings, and notes. The current domain terms and import format are intended to make that migration incremental rather than a UI rewrite.

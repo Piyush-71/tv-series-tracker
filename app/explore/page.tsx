@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { ExploreClient } from "@/components/media/explore-client";
-import { getAllTitles, getGenresFromCatalog } from "@/lib/tmdb/service";
+import { getDiscoveryFilters, getDiscoveryPage } from "@/lib/tmdb/service";
 
 export const metadata: Metadata = {
   title: "Explore",
@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 };
 
 export default async function ExplorePage() {
-  const [items, genres] = await Promise.all([getAllTitles(), getGenresFromCatalog()]);
+  const [initialPage, options] = await Promise.all([getDiscoveryPage({ page: 1 }), getDiscoveryFilters()]);
 
   return (
     <section className="px-4 pb-14 pt-28 sm:px-6 lg:px-10">
@@ -17,7 +17,7 @@ export default async function ExplorePage() {
         <h1 className="mt-2 text-4xl font-black text-white sm:text-6xl">Explore premieres</h1>
         <p className="mt-4 text-zinc-400">Filter the full release slate by genre, type, year, and popularity.</p>
       </div>
-      <ExploreClient items={items} genres={genres} />
+      <ExploreClient initialPage={initialPage} options={options} />
     </section>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, useScroll, useTransform } from "framer-motion";
-import { Bell, Play, Plus } from "lucide-react";
+import { Play, Plus } from "lucide-react";
 import { useState } from "react";
 import type { MediaTitle } from "@/types/media";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import { TrailerModal } from "@/components/media/trailer-modal";
 import { GenrePills } from "@/components/media/genre-pills";
 import { formatReleaseDate } from "@/lib/utils";
 import { useWatchlist } from "@/hooks/use-watchlist";
+import { NotifyButton } from "@/components/tracker/notify-button";
 
 export function HeroBanner({ title }: { title: MediaTitle }) {
   const [open, setOpen] = useState(false);
@@ -20,7 +21,7 @@ export function HeroBanner({ title }: { title: MediaTitle }) {
   const opacity = useTransform(scrollY, [0, 620], [1, 0.35]);
 
   return (
-    <section className="relative min-h-[92svh] overflow-hidden">
+    <section className="cinematic relative min-h-[92svh] overflow-hidden">
       <motion.img
         src={title.backdrop}
         alt=""
@@ -53,17 +54,14 @@ export function HeroBanner({ title }: { title: MediaTitle }) {
             <GenrePills genres={title.genres} />
           </div>
           <div className="mt-7 max-w-xl">
-            <CountdownTimer releaseDate={title.releaseDate} />
+            <CountdownTimer titleId={title.id} releaseDate={title.releaseDate} releasePrecision={title.releasePrecision} />
           </div>
           <div className="mt-7 flex flex-wrap gap-3">
             <Button size="lg" onClick={() => setOpen(true)}>
               <Play size={19} fill="currentColor" />
               Watch Trailer
             </Button>
-            <Button size="lg" variant="secondary">
-              <Bell size={19} />
-              Notify Me
-            </Button>
+            <NotifyButton title={title} size="lg" />
             <Button size="lg" variant="secondary" onClick={() => watchlist.toggle(title.id)}>
               <Plus size={19} />
               Watchlist

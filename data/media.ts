@@ -90,7 +90,7 @@ export const mediaTitles: MediaTitle[] = [
     releaseDate: "2026-06-01T21:00:00-07:00",
     genres: ["Fantasy", "Mystery"],
     poster:
-      "https://images.unsplash.com/photo-1518709268805-4e9042af2176?auto=format&fit=crop&w=900&q=80",
+      "https://images.unsplash.com/photo-1440404653325-ab127d49abc1?auto=format&fit=crop&w=900&q=80",
     backdrop:
       "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1800&q=85",
     trailerUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ",

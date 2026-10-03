@@ -1,9 +1,34 @@
+import { Resolver } from "node:dns";
+import { Agent, fetch as fetchWithDispatcher } from "undici";
+
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 
 type TmdbFetchOptions = {
   params?: Record<string, string | number | boolean | undefined>;
   revalidate?: number;
+  timeoutMs?: number;
 };
+
+const DEFAULT_TIMEOUT_MS = 5_000;
+const publicDnsResolver = new Resolver();
+publicDnsResolver.setServers(["1.1.1.1", "8.8.8.8"]);
+
+const publicDnsDispatcher = new Agent({
+  connect: {
+    lookup(hostname, options, callback) {
+      const family = options.family === 6 ? 6 : 4;
+      const resolve = family === 6
+        ? publicDnsResolver.resolve6.bind(publicDnsResolver)
+        : publicDnsResolver.resolve4.bind(publicDnsResolver);
+
+      resolve(hostname, (error, addresses) => {
+        if (error) return callback(error, [], family);
+        if (options.all) return callback(null, addresses.map((address) => ({ address, family })));
+        callback(null, addresses[0], family);
+      });
+    },
+  },
+});
 
 export class TmdbApiError extends Error {
   constructor(
@@ -49,19 +74,36 @@ export async function tmdbFetch<T>(path: string, options: TmdbFetchOptions = {})
 
 async function fetchWithRetry(url: URL, options: TmdbFetchOptions) {
   const attempts = 3;
+  let usePublicDns = false;
 
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? DEFAULT_TIMEOUT_MS);
+
     try {
-      const response = await fetch(url, {
-        headers: getAuthHeaders(),
-        next: { revalidate: options.revalidate ?? 60 * 60 },
-      });
+      const response = usePublicDns
+        ? await fetchWithDispatcher(url, {
+            dispatcher: publicDnsDispatcher,
+            headers: getAuthHeaders(),
+            signal: controller.signal,
+          })
+        : await fetch(url, {
+            headers: getAuthHeaders(),
+            next: { revalidate: options.revalidate ?? 60 * 60 },
+            signal: controller.signal,
+          });
 
       if (!isRetryableStatus(response.status) || attempt === attempts) {
         return response;
       }
     } catch (error) {
+      if (controller.signal.aborted && usePublicDns) {
+        throw new TmdbApiError(`TMDB request timed out after ${options.timeoutMs ?? DEFAULT_TIMEOUT_MS}ms`, 504);
+      }
       if (attempt === attempts) throw error;
+      usePublicDns = true;
+    } finally {
+      clearTimeout(timeout);
     }
 
     await wait(attempt * 250);

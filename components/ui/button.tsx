@@ -8,7 +8,7 @@ type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
 
 const variants = {
   primary:
-    "bg-white text-black shadow-[0_0_32px_rgba(124,58,237,0.45)] hover:bg-zinc-200",
+    "bg-foreground text-background shadow-[0_0_32px_rgba(124,58,237,0.45)] hover:opacity-90",
   secondary:
     "border border-white/15 bg-white/10 text-white backdrop-blur-xl hover:bg-white/16",
   ghost: "text-zinc-200 hover:bg-white/10",
