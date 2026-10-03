@@ -1,9 +1,9 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Bell, Bookmark, Play, Star } from "lucide-react";
+import { Bookmark, Play, Star } from "lucide-react";
 import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { MediaTitle } from "@/types/media";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +13,10 @@ import { GenrePills } from "@/components/media/genre-pills";
 import { CarouselSection } from "@/components/media/carousel-section";
 import { formatReleaseDate } from "@/lib/utils";
 import { useWatchlist } from "@/hooks/use-watchlist";
+import { NotifyButton } from "@/components/tracker/notify-button";
+import { EpisodeTracker } from "@/components/tracker/episode-tracker";
+import { PersonalTitleControls } from "@/components/tracker/personal-title-controls";
+import { useTracker } from "@/hooks/use-tracker";
 
 export function DetailView({
   title,
@@ -23,11 +27,17 @@ export function DetailView({
 }) {
   const [open, setOpen] = useState(false);
   const watchlist = useWatchlist();
+  const tracker = useTracker();
+  const markViewed = useRef(tracker.markViewed);
   const saved = watchlist.has(title.id);
+
+  useEffect(() => {
+    markViewed.current(title.id);
+  }, [title.id]);
 
   return (
     <>
-      <section className="relative min-h-[78svh] overflow-hidden px-4 pb-12 pt-28 sm:px-6 lg:px-10">
+      <section className="cinematic relative min-h-[78svh] overflow-hidden px-4 pb-12 pt-28 sm:px-6 lg:px-10">
         <Image src={title.backdrop} alt="" fill priority sizes="100vw" className="object-cover" />
         <div className="absolute inset-0 bg-[linear-gradient(90deg,#020205_0%,rgba(2,2,5,0.82)_45%,rgba(2,2,5,0.34)_100%),linear-gradient(0deg,#020205_0%,transparent_42%)]" />
         <motion.div
@@ -54,17 +64,14 @@ export function DetailView({
               <GenrePills genres={title.genres} />
             </div>
             <div className="mt-7 max-w-xl">
-              <CountdownTimer releaseDate={title.releaseDate} />
+              <CountdownTimer titleId={title.id} releaseDate={title.releaseDate} releasePrecision={title.releasePrecision} />
             </div>
             <div className="mt-7 flex flex-wrap gap-3">
               <Button size="lg" onClick={() => setOpen(true)}>
                 <Play size={18} fill="currentColor" />
                 Trailer
               </Button>
-              <Button size="lg" variant="secondary">
-                <Bell size={18} />
-                Notify Me
-              </Button>
+              <NotifyButton title={title} size="lg" />
               <Button size="lg" variant={saved ? "danger" : "secondary"} onClick={() => watchlist.toggle(title.id)}>
                 <Bookmark size={18} fill={saved ? "currentColor" : "none"} />
                 {saved ? "Saved" : "Save"}
@@ -78,6 +85,8 @@ export function DetailView({
         <div>
           <h2 className="text-2xl font-black text-white">Synopsis</h2>
           <p className="mt-4 max-w-3xl text-base leading-8 text-zinc-300">{title.description}</p>
+          <PersonalTitleControls title={title} />
+          {title.type === "tv" || title.type === "anime" ? <EpisodeTracker title={title} /> : null}
           <h2 className="mt-10 text-2xl font-black text-white">Cast</h2>
           <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
             {title.cast.map((person) => (
@@ -98,6 +107,23 @@ export function DetailView({
             <Badge className="justify-center py-3 text-sm">4K HDR</Badge>
             <Badge className="justify-center py-3 text-sm">Trailer Available</Badge>
           </div>
+          {title.nextEpisode ? (
+            <div className="mt-5 rounded-lg border border-blue-300/20 bg-blue-500/10 p-4">
+              <p className="text-xs font-bold uppercase tracking-wider text-blue-300">Next episode</p>
+              <p className="mt-1 font-bold text-white">S{title.nextEpisode.seasonNumber} E{title.nextEpisode.episodeNumber} · {title.nextEpisode.name}</p>
+              <p className="mt-1 text-xs text-zinc-400">{title.nextEpisode.airDate ? formatReleaseDate(title.nextEpisode.airDate) : "Airdate TBA"}</p>
+            </div>
+          ) : null}
+          <div className="mt-6 grid gap-2 text-sm text-zinc-400">
+            {title.status ? <p><span className="text-zinc-500">Status:</span> {title.status}</p> : null}
+            {title.runtime ? <p><span className="text-zinc-500">Runtime:</span> {title.runtime} min</p> : null}
+            {title.certification ? <p><span className="text-zinc-500">Certification:</span> {title.certification}</p> : null}
+            {title.seasonCount ? <p><span className="text-zinc-500">Seasons:</span> {title.seasonCount}</p> : null}
+            {title.episodeCount ? <p><span className="text-zinc-500">Episodes:</span> {title.episodeCount}</p> : null}
+            {title.creators?.length ? <p><span className="text-zinc-500">Created by:</span> {title.creators.join(", ")}</p> : null}
+            {title.originalLanguage ? <p><span className="text-zinc-500">Original language:</span> {title.originalLanguage.toUpperCase()}</p> : null}
+          </div>
+          {title.providerLink ? <a href={title.providerLink} target="_blank" rel="noreferrer" className="mt-5 block rounded-lg border border-violet-300/30 bg-violet-500/10 px-4 py-3 text-center text-sm font-bold text-violet-200 hover:bg-violet-500/20">View streaming options</a> : null}
         </aside>
       </section>
 

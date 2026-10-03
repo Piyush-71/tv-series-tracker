@@ -10,6 +10,7 @@ import { useDebounce } from "@/hooks/use-debounce";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { useTracker } from "@/hooks/use-tracker";
 
 export function SearchOverlay({
   open,
@@ -22,7 +23,9 @@ export function SearchOverlay({
   const [genre, setGenre] = useState("All");
   const [type, setType] = useState("All");
   const [items, setItems] = useState<MediaTitle[]>([]);
+  const [error, setError] = useState("");
   const debounced = useDebounce(query);
+  const tracker = useTracker();
 
   useEffect(() => {
     if (!open) return;
@@ -32,11 +35,16 @@ export function SearchOverlay({
     if (debounced) params.set("q", debounced);
 
     fetch(`/api/search?${params.toString()}`, { signal: controller.signal })
-      .then((response) => response.json() as Promise<{ results: MediaTitle[] }>)
-      .then((data) => setItems(data.results))
+      .then(async (response) => {
+        const data = (await response.json()) as { results?: MediaTitle[]; error?: { message: string } };
+        if (!response.ok) throw new Error(data.error?.message || "Search is unavailable.");
+        return data;
+      })
+      .then((data) => { setItems(data.results ?? []); setError(""); })
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === "AbortError") return;
         setItems([]);
+        setError(error instanceof Error ? error.message : "Search is unavailable.");
       });
 
     return () => controller.abort();
@@ -56,7 +64,7 @@ export function SearchOverlay({
     <AnimatePresence>
       {open ? (
         <motion.div
-          className="fixed inset-0 z-50 overflow-y-auto bg-black/86 px-4 py-5 backdrop-blur-2xl sm:px-6"
+          className="cinematic fixed inset-0 z-50 overflow-y-auto bg-black/86 px-4 py-5 backdrop-blur-2xl sm:px-6"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -110,12 +118,21 @@ export function SearchOverlay({
               </select>
             </div>
 
+            {!query && tracker.data.searchHistory.length ? (
+              <div className="mt-5 flex flex-wrap items-center gap-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-zinc-500">Recent searches</span>
+                {tracker.data.searchHistory.map((item) => <button key={item} onClick={() => setQuery(item)}><Badge>{item}</Badge></button>)}
+              </div>
+            ) : null}
+
             <div className="mt-6 grid gap-3">
+              {error ? <div className="rounded-lg border border-rose-400/25 bg-rose-400/10 p-5 text-sm text-rose-200" role="alert">{error}</div> : null}
+              {!error && query && results.length === 0 ? <div className="rounded-lg border border-dashed border-white/15 p-8 text-center text-zinc-400">No titles matched “{query}”. Try a broader title or remove a filter.</div> : null}
               {results.map((item) => (
                 <Link
                   key={item.id}
                   href={`/title/${item.slug}`}
-                  onClick={() => onOpenChange(false)}
+                  onClick={() => { tracker.addSearch(query); onOpenChange(false); }}
                   className="group grid grid-cols-[76px_1fr] gap-4 rounded-lg border border-white/10 bg-white/[0.055] p-3 transition hover:border-violet-300/50 hover:bg-white/10"
                 >
                   <Image

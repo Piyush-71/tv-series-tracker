@@ -1,53 +1,43 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useEffect, useState } from "react";
-
-type TimeLeft = {
-  days: number;
-  hours: number;
-  minutes: number;
-  seconds: number;
-};
-
-function getTimeLeft(date: string): TimeLeft {
-  const distance = Math.max(new Date(date).getTime() - Date.now(), 0);
-
-  return {
-    days: Math.floor(distance / (1000 * 60 * 60 * 24)),
-    hours: Math.floor((distance / (1000 * 60 * 60)) % 24),
-    minutes: Math.floor((distance / (1000 * 60)) % 60),
-    seconds: Math.floor((distance / 1000) % 60),
-  };
-}
+import { CalendarDays, Clock3 } from "lucide-react";
+import { getReleasePresentation, getTimeLeft, type ReleasePrecision } from "@/lib/release";
+import { useTracker } from "@/hooks/use-tracker";
+import { useNow } from "@/hooks/use-now";
 
 export function CountdownTimer({
   releaseDate,
+  titleId,
+  releasePrecision,
   compact = false,
 }: {
   releaseDate: string;
+  titleId?: string;
+  releasePrecision?: ReleasePrecision;
   compact?: boolean;
 }) {
-  const [timeLeft, setTimeLeft] = useState<TimeLeft>({
-    days: 0,
-    hours: 0,
-    minutes: 0,
-    seconds: 0,
-  });
+  const tracker = useTracker();
+  const effectiveReleaseDate = titleId ? tracker.data.releaseOverrides[titleId] ?? releaseDate : releaseDate;
+  const effectivePrecision = titleId && tracker.data.releaseOverrides[titleId] ? "datetime" : releasePrecision;
+  const timeZone = tracker.data.preferences.timeZone || "UTC";
+  const presentation = getReleasePresentation({ releaseDate: effectiveReleaseDate, releasePrecision: effectivePrecision, timeZone });
+  const now = useNow();
+  const timeLeft = now
+    ? getTimeLeft(effectiveReleaseDate, new Date(now))
+    : { days: 0, hours: 0, minutes: 0, seconds: 0 };
 
-  useEffect(() => {
-    const update = () => {
-      setTimeLeft(getTimeLeft(releaseDate));
-    };
-
-    const timeout = window.setTimeout(update, 0);
-    const interval = window.setInterval(update, 1000);
-
-    return () => {
-      window.clearTimeout(timeout);
-      window.clearInterval(interval);
-    };
-  }, [releaseDate]);
+  if (!presentation.showCountdown) {
+    return (
+      <div className={compact ? "rounded-md border border-white/10 bg-black/55 px-2.5 py-2 text-xs text-white" : "rounded-lg border border-white/12 bg-white/10 p-4 text-white backdrop-blur-xl"}>
+        <div className="flex items-center gap-2 font-bold">
+          <CalendarDays size={compact ? 14 : 18} />
+          <span>{presentation.label}</span>
+        </div>
+        {compact ? null : <p className="mt-1 text-xs text-zinc-300">{effectivePrecision === "date" ? "Date supplied without an exact airtime" : `Exact time shown in ${presentation.timeZoneLabel}`}</p>}
+      </div>
+    );
+  }
 
   const units = [
     ["D", timeLeft.days],
@@ -57,8 +47,9 @@ export function CountdownTimer({
   ] as const;
 
   return (
-    <div className={compact ? "flex gap-1.5" : "grid grid-cols-4 gap-2 sm:gap-3"}>
-      {units.map(([label, value]) => (
+    <div>
+      <div className={compact ? "flex gap-1.5" : "grid grid-cols-4 gap-2 sm:gap-3"}>
+        {units.map(([label, value]) => (
         <motion.div
           key={label}
           layout
@@ -91,7 +82,14 @@ export function CountdownTimer({
             {label}
           </div>
         </motion.div>
-      ))}
+        ))}
+      </div>
+      {compact ? null : (
+        <div className="mt-2 flex items-center gap-1.5 text-xs text-zinc-300">
+          <Clock3 size={13} />
+          {presentation.label} · {presentation.timeZoneLabel}
+        </div>
+      )}
     </div>
   );
 }

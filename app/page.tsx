@@ -1,19 +1,14 @@
-import { CarouselSection } from "@/components/media/carousel-section";
-import { HeroBanner } from "@/components/media/hero-banner";
-import { getCatalog } from "@/lib/tmdb/service";
+import type { Metadata } from "next";
+import { ScheduleDashboard } from "@/components/schedule/schedule-dashboard";
+import { getScheduleDashboard } from "@/lib/schedule";
+
+export const metadata: Metadata = {
+  title: "TV Show Countdowns and Episode Schedule",
+  description: "Live countdowns for trending TV shows, upcoming series premieres, and the next episodes airing in your timezone.",
+  alternates: { canonical: "/" },
+};
 
 export default async function Home() {
-  const catalog = await getCatalog();
-
-  return (
-    <>
-      <HeroBanner title={catalog.featured} />
-      <CarouselSection title="Trending" eyebrow="Signal rising" items={catalog.trending} href="/trending" />
-      <CarouselSection title="Releasing This Week" eyebrow="Nearly here" items={catalog.thisWeek} href="/explore" />
-      <CarouselSection title="Most Anticipated" eyebrow="High voltage" items={catalog.anticipated} href="/explore" />
-      <CarouselSection title="Anime" items={catalog.anime} href="/category/anime" />
-      <CarouselSection title="Movies" items={catalog.movies} href="/category/movie" />
-      <CarouselSection title="TV Shows" items={catalog.tv} href="/category/tv" />
-    </>
-  );
+  const dashboard = await getScheduleDashboard(8);
+  return <ScheduleDashboard dashboard={dashboard} />;
 }

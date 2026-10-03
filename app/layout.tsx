@@ -3,10 +3,12 @@ import { dark } from "@clerk/themes";
 import type { Metadata } from "next";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
+import { TrackerRuntime } from "@/components/tracker/tracker-runtime";
+import Script from "next/script";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://cinecount.example"),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"),
   title: {
     default: "Cinecount - Streaming Release Countdowns",
     template: "%s | Cinecount",
@@ -18,6 +20,7 @@ export const metadata: Metadata = {
     description: "A premium entertainment countdown and streaming discovery platform.",
     type: "website",
   },
+  manifest: "/manifest.webmanifest",
 };
 
 export default function RootLayout({
@@ -26,8 +29,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="h-full scroll-smooth antialiased">
+    <html lang="en" className="h-full scroll-smooth antialiased" data-scroll-behavior="smooth" suppressHydrationWarning>
       <body className="min-h-full bg-background text-foreground">
+        <Script id="cinecount-theme" strategy="beforeInteractive">
+          {`try{const raw=localStorage.getItem('cinecount-tracker-v1');const saved=raw?JSON.parse(raw).preferences?.theme:'system';const light=saved==='light'||(saved!=='dark'&&matchMedia('(prefers-color-scheme: light)').matches);document.documentElement.classList.toggle('light',light);document.documentElement.dataset.theme=saved||'system'}catch{}`}
+        </Script>
         <ClerkProvider
           signInUrl="/login"
           signUpUrl="/login"
@@ -79,6 +85,7 @@ export default function RootLayout({
             },
           }}
         >
+          <TrackerRuntime />
           <Navbar />
           <main>{children}</main>
           <Footer />

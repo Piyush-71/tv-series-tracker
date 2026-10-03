@@ -19,7 +19,7 @@ export function TrailerModal({
     <AnimatePresence>
       {open ? (
         <motion.div
-          className="fixed inset-0 z-50 grid place-items-center bg-black/80 p-4 backdrop-blur-md"
+          className="cinematic fixed inset-0 z-50 grid place-items-center bg-black/80 p-4 backdrop-blur-md"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}

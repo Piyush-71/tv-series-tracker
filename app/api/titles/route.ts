@@ -1,18 +1,17 @@
 import { NextResponse } from "next/server";
-import { getTitlesByQuery } from "@/lib/tmdb/service";
-import type { MediaType } from "@/types/media";
+import { getDiscoveryPage } from "@/lib/tmdb/service";
+import { ApiInputError, getRequestKey, parseTitleQuery, publicApiLimiter } from "@/lib/api";
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const type = searchParams.get("type") as MediaType | "all" | null;
-  const genre = searchParams.get("genre") ?? undefined;
-  const query = searchParams.get("q") ?? undefined;
-
-  const titles = await getTitlesByQuery({
-    type: type ?? "all",
-    genre,
-    query,
-  });
-
-  return NextResponse.json({ results: titles });
+  const rate = publicApiLimiter.check(getRequestKey(request));
+  if (!rate.allowed) return NextResponse.json({ error: { code: "RATE_LIMITED", message: "Too many catalog requests. Try again shortly." } }, { status: 429, headers: { "retry-after": String(rate.retryAfterSeconds) } });
+  try {
+    const query = parseTitleQuery(new URL(request.url).searchParams);
+    const data = await getDiscoveryPage(query);
+    return NextResponse.json({ ...data, hasMore: data.page < data.totalPages }, { headers: { "x-ratelimit-remaining": String(rate.remaining) } });
+  } catch (error) {
+    if (error instanceof ApiInputError) return NextResponse.json({ error: { code: error.code, message: error.message } }, { status: 400 });
+    console.error(JSON.stringify({ event: "api.titles_failed", error: String(error) }));
+    return NextResponse.json({ error: { code: "CATALOG_UNAVAILABLE", message: "The catalog is temporarily unavailable." } }, { status: 502 });
+  }
 }
