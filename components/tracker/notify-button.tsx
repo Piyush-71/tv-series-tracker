@@ -19,7 +19,8 @@ export function NotifyButton({
 }) {
   const tracker = useTracker();
   const reminder = tracker.data.reminders[title.id];
-  const releaseDate = tracker.data.releaseOverrides[title.id] ?? title.releaseDate;
+  const releaseDate =
+    tracker.data.releaseOverrides[title.id] ?? title.releaseDate;
 
   async function toggle() {
     if (reminder) {
@@ -27,8 +28,10 @@ export function NotifyButton({
       return;
     }
 
-    let permission = typeof Notification === "undefined" ? "denied" : Notification.permission;
-    if (permission === "default") permission = await Notification.requestPermission();
+    let permission =
+      typeof Notification === "undefined" ? "denied" : Notification.permission;
+    if (permission === "default")
+      permission = await Notification.requestPermission();
 
     tracker.setPreferences({ browserNotifications: permission === "granted" });
     tracker.setReminder(
@@ -50,10 +53,24 @@ export function NotifyButton({
       variant={reminder ? "danger" : "secondary"}
       className={cn(compact ? "flex-1" : undefined, className)}
       onClick={toggle}
-      aria-label={reminder ? `Cancel reminder for ${title.title}` : `Remind me about ${title.title}`}
+      aria-label={
+        reminder
+          ? `Cancel reminder for ${title.title}`
+          : `Remind me about ${title.title}`
+      }
     >
-      {reminder ? <BellOff size={compact ? 15 : 18} /> : <Bell size={compact ? 15 : 18} />}
-      {size === "icon" ? null : reminder ? "Reminder set" : compact ? "Notify" : "Notify Me"}
+      {reminder ? (
+        <BellOff size={compact ? 15 : 18} />
+      ) : (
+        <Bell size={compact ? 15 : 18} />
+      )}
+      {size === "icon"
+        ? null
+        : reminder
+          ? "Reminder set"
+          : compact
+            ? "Notify"
+            : "Notify Me"}
     </Button>
   );
 }
