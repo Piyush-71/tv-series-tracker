@@ -16,7 +16,10 @@ export function TrackerRuntime() {
     const preference = tracker.data.preferences.theme;
     const media = window.matchMedia("(prefers-color-scheme: light)");
     const apply = () => {
-      document.documentElement.classList.toggle("light", preference === "light" || (preference === "system" && media.matches));
+      document.documentElement.classList.toggle(
+        "light",
+        preference === "light" || (preference === "system" && media.matches),
+      );
       document.documentElement.dataset.theme = preference;
     };
     apply();
@@ -49,7 +52,11 @@ export function TrackerRuntime() {
           return;
         }
 
-        if (browserNotifications && typeof Notification !== "undefined" && Notification.permission === "granted") {
+        if (
+          browserNotifications &&
+          typeof Notification !== "undefined" &&
+          Notification.permission === "granted"
+        ) {
           try {
             new Notification(`${reminder.title} is nearly here`, {
               body: "Your Cinecount release reminder is due.",
@@ -59,13 +66,19 @@ export function TrackerRuntime() {
             void fetch("/api/telemetry", {
               method: "POST",
               headers: { "content-type": "application/json" },
-              body: JSON.stringify({ event: "notification.delivered", titleId: reminder.id }),
+              body: JSON.stringify({
+                event: "notification.delivered",
+                titleId: reminder.id,
+              }),
             });
           } catch {
             void fetch("/api/telemetry", {
               method: "POST",
               headers: { "content-type": "application/json" },
-              body: JSON.stringify({ event: "notification.failed", titleId: reminder.id }),
+              body: JSON.stringify({
+                event: "notification.failed",
+                titleId: reminder.id,
+              }),
             });
           }
         }
@@ -80,10 +93,18 @@ export function TrackerRuntime() {
   if (online || dismissed) return null;
 
   return (
-    <div className="fixed inset-x-0 top-16 z-50 flex items-center justify-center gap-2 bg-amber-300 px-4 py-2 text-sm font-semibold text-zinc-950" role="status">
+    <div
+      className="fixed inset-x-0 top-20 z-50 flex items-center justify-center gap-2 bg-amber-300 px-4 py-2 text-sm font-semibold text-zinc-950"
+      role="status"
+    >
       <WifiOff size={16} />
-      You are offline. Saved tracker data still works; catalog updates will resume when connected.
-      <button onClick={() => setDismissed(true)} aria-label="Dismiss offline notice" className="ml-2 rounded p-1 hover:bg-black/10">
+      You are offline. Saved tracker data still works; catalog updates will
+      resume when connected.
+      <button
+        onClick={() => setDismissed(true)}
+        aria-label="Dismiss offline notice"
+        className="ml-2 grid h-11 w-11 shrink-0 place-items-center rounded-full hover:bg-black/10"
+      >
         <X size={15} />
       </button>
     </div>

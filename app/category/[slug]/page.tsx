@@ -1,13 +1,12 @@
 import type { Metadata } from "next";
+import { ArrowLeft } from "lucide-react";
+import Link from "next/link";
+import { PageHeading } from "@/components/layout/page-heading";
 import { MediaGrid } from "@/components/media/media-grid";
-import { getAllTitles, getTitlesByQuery } from "@/lib/tmdb/service";
+import { getTitlesByQuery } from "@/lib/tmdb/service";
 import { slugToTitle } from "@/lib/utils";
 import type { MediaType } from "@/types/media";
-
-type Props = {
-  params: Promise<{ slug: string }>;
-};
-
+type Props = { params: Promise<{ slug: string }> };
 const typeSlugs: Record<string, MediaType> = {
   tv: "tv",
   television: "tv",
@@ -17,29 +16,43 @@ const typeSlugs: Record<string, MediaType> = {
   event: "event",
   events: "event",
 };
-
+const labels: Record<string, string> = {
+  tv: "TV series",
+  television: "TV series",
+  movie: "Movies",
+  movies: "Movies",
+  anime: "Anime",
+  event: "Events",
+  events: "Events",
+};
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   return {
-    title: slugToTitle(slug),
-    description: `Browse ${slugToTitle(slug)} releases on Cinecount.`,
+    title: labels[slug] ?? slugToTitle(slug),
+    description: `Discover ${labels[slug] ?? slugToTitle(slug)} on Cinecount.`,
   };
 }
-
 export default async function CategoryPage({ params }: Props) {
   const { slug } = await params;
-  const label = slugToTitle(slug);
-  const items = typeSlugs[slug] ? await getTitlesByQuery({ type: typeSlugs[slug] }) : await getTitlesByQuery({ genre: label });
-  const fallback = items.length ? items : await getAllTitles();
-
+  const label = labels[slug] ?? slugToTitle(slug);
+  const items = await getTitlesByQuery(
+    typeSlugs[slug] ? { type: typeSlugs[slug] } : { genre: label },
+  );
   return (
-    <section className="px-4 pb-14 pt-28 sm:px-6 lg:px-10">
-      <p className="text-xs font-bold uppercase tracking-[0.24em] text-blue-300">Category</p>
-      <h1 className="mt-2 text-4xl font-black text-white sm:text-6xl">{label}</h1>
-      <p className="mt-4 text-zinc-400">{fallback.length} upcoming releases in this lane.</p>
-      <div className="mt-8">
-        <MediaGrid items={fallback} />
-      </div>
+    <section className="page-shell page-section">
+      <Link
+        href="/explore"
+        className="mb-6 inline-flex min-h-11 items-center gap-2 text-sm text-muted hover:text-foreground"
+      >
+        <ArrowLeft size={16} aria-hidden="true" />
+        All titles
+      </Link>
+      <PageHeading
+        eyebrow="Find your kind of story"
+        title={label}
+        description={`${items.length} ${items.length === 1 ? "title" : "titles"} to explore. A new favorite could be waiting.`}
+      />
+      <MediaGrid items={items} />
     </section>
   );
 }

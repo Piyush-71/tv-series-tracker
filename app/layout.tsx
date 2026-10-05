@@ -1,14 +1,24 @@
 import { ClerkProvider } from "@clerk/nextjs";
 import { dark } from "@clerk/themes";
 import type { Metadata } from "next";
-import { Navbar } from "@/components/layout/navbar";
-import { Footer } from "@/components/layout/footer";
-import { TrackerRuntime } from "@/components/tracker/tracker-runtime";
 import Script from "next/script";
+import { Geist } from "next/font/google";
+import { Navbar } from "@/components/layout/navbar";
+import { TrackerRuntime } from "@/components/tracker/tracker-runtime";
+import { Footer } from "@/components/layout/footer";
 import "./globals.css";
 
+const geist = Geist({
+  subsets: ["latin"],
+  variable: "--font-geist",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"),
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
+  ),
+  manifest: "/manifest.webmanifest",
   title: {
     default: "Cinecount - Streaming Release Countdowns",
     template: "%s | Cinecount",
@@ -17,10 +27,10 @@ export const metadata: Metadata = {
     "Discover upcoming TV shows, movies, anime, and live events with cinematic countdowns, trailers, and watchlists.",
   openGraph: {
     title: "Cinecount",
-    description: "A premium entertainment countdown and streaming discovery platform.",
+    description:
+      "A premium entertainment countdown and streaming discovery platform.",
     type: "website",
   },
-  manifest: "/manifest.webmanifest",
 };
 
 export default function RootLayout({
@@ -29,7 +39,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="h-full scroll-smooth antialiased" data-scroll-behavior="smooth" suppressHydrationWarning>
+    <html
+      lang="en"
+      suppressHydrationWarning
+      data-scroll-behavior="smooth"
+      className={`${geist.variable} h-full scroll-smooth antialiased`}
+    >
       <body className="min-h-full bg-background text-foreground">
         <Script id="cinecount-theme" strategy="beforeInteractive">
           {`try{const raw=localStorage.getItem('cinecount-tracker-v1');const saved=raw?JSON.parse(raw).preferences?.theme:'system';const light=saved==='light'||(saved!=='dark'&&matchMedia('(prefers-color-scheme: light)').matches);document.documentElement.classList.toggle('light',light);document.documentElement.dataset.theme=saved||'system'}catch{}`}
@@ -41,53 +56,58 @@ export default function RootLayout({
           appearance={{
             baseTheme: dark,
             variables: {
-              colorPrimary: "#8b5cf6",
-              colorPrimaryForeground: "#ffffff",
-              colorBackground: "#08080b",
-              colorForeground: "#ffffff",
-              colorMuted: "#18181f",
-              colorMutedForeground: "#b8b8c5",
-              colorNeutral: "#ffffff",
-              colorInput: "#111116",
-              colorInputForeground: "#ffffff",
-              colorBorder: "rgba(255, 255, 255, 0.16)",
-              colorRing: "#a78bfa",
-              colorDanger: "#fb7185",
+              colorPrimary: "#d5f56a",
+              colorPrimaryForeground: "#182008",
+              colorBackground: "var(--surface)",
+              colorForeground: "var(--foreground)",
+              colorMuted: "var(--surface-raised)",
+              colorMutedForeground: "var(--muted)",
+              colorNeutral: "var(--foreground)",
+              colorInput: "var(--background)",
+              colorInputForeground: "var(--foreground)",
+              colorBorder: "var(--border)",
+              colorRing: "#d5f56a",
+              colorDanger: "var(--danger)",
               colorSuccess: "#34d399",
               colorWarning: "#fbbf24",
               colorModalBackdrop: "#000000",
-              borderRadius: "0.5rem",
+              borderRadius: "0.75rem",
               fontFamily:
-                "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+                "var(--font-geist), ui-sans-serif, system-ui, sans-serif",
             },
             elements: {
-              modalBackdrop: "backdrop-blur-md",
-              modalContent:
-                "border border-white/15 bg-[#08080b] shadow-[0_32px_100px_rgba(0,0,0,0.8)]",
-              card: "border border-white/15 bg-[#08080b] shadow-2xl",
-              headerTitle: "text-white",
-              headerSubtitle: "text-zinc-300",
-              identityPreviewText: "text-zinc-200",
-              identityPreviewEditButton: "text-violet-300 hover:text-violet-200",
-              formFieldLabel: "text-zinc-200",
+              card: "border border-border bg-surface shadow-none",
+              headerTitle: "text-foreground",
+              headerSubtitle: "text-muted",
+              identityPreviewText: "text-foreground",
+              identityPreviewEditButton: "text-foreground",
+              formFieldLabel: "text-foreground",
               formFieldInput:
-                "border-white/20 bg-[#111116] text-white caret-violet-300 placeholder:text-zinc-500",
-              formFieldInputShowPasswordButton: "text-zinc-300 hover:text-white",
-              otpCodeFieldInput:
-                "border-white/20 bg-[#111116] text-white caret-violet-300",
+                "border-border bg-background text-foreground placeholder:text-muted",
+              formFieldInputShowPasswordButton:
+                "text-muted hover:text-foreground",
+              otpCodeFieldInput: "border-border bg-background text-foreground",
               formButtonPrimary:
-                "bg-violet-500 text-white shadow-[0_0_24px_rgba(139,92,246,0.28)] hover:bg-violet-400",
+                "bg-accent text-on-accent hover:bg-accent/85 shadow-none",
               alternativeMethodsBlockButton:
-                "border-white/15 bg-white/5 text-zinc-100 hover:bg-white/10",
-              footerActionText: "text-zinc-400",
-              footerActionLink: "text-violet-300 hover:text-violet-200",
-              footer: "bg-transparent",
+                "border-border bg-surface text-foreground hover:bg-surface-raised",
+              footerActionText: "text-muted",
+              footerActionLink: "text-foreground underline",
+              footer: "bg-surface",
             },
           }}
         >
+          <a
+            href="#main-content"
+            className="fixed left-4 top-4 z-50 -translate-y-24 rounded-full bg-accent px-5 py-3 text-sm font-semibold text-on-accent focus:translate-y-0"
+          >
+            Skip to content
+          </a>
           <TrackerRuntime />
           <Navbar />
-          <main>{children}</main>
+          <main id="main-content" tabIndex={-1} className="min-h-[70dvh]">
+            {children}
+          </main>
           <Footer />
         </ClerkProvider>
       </body>
