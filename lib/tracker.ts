@@ -1,3 +1,5 @@
+import { normalizeTimeZone } from "@/lib/timezone";
+
 export const trackerStorageKey = "cinecount-tracker-v1";
 export const legacyWatchlistKey = "cinecount-watchlist";
 
@@ -94,6 +96,7 @@ export function importTrackerData(value: string): TrackerData {
     throw new Error("Invalid Cinecount tracker file");
   }
 
+  parsed.preferences.timeZone = normalizeTimeZone(parsed.preferences.timeZone);
   return parsed;
 }
 

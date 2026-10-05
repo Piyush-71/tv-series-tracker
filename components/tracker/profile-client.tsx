@@ -7,6 +7,7 @@ import type { MediaTitle } from "@/types/media";
 import { MediaGrid } from "@/components/media/media-grid";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { TimezoneSelect } from "@/components/tracker/timezone-select";
 import { useTracker } from "@/hooks/use-tracker";
 import { importTrackerData } from "@/lib/tracker";
 
@@ -63,7 +64,7 @@ export function ProfileClient({ items, genres, services }: { items: MediaTitle[]
         <section className="rounded-xl border border-white/10 bg-white/[0.055] p-5">
           <h2 className="text-xl font-black text-white">Preferences</h2>
           <label className="mt-5 block text-sm font-semibold text-zinc-300" htmlFor="timezone">Timezone</label>
-          <input id="timezone" value={tracker.data.preferences.timeZone} onChange={(event) => tracker.setPreferences({ timeZone: event.target.value })} className="mt-2 h-11 w-full rounded-lg border border-white/12 bg-black px-3 text-sm text-white" placeholder="Asia/Kolkata" />
+          <TimezoneSelect id="timezone" className="mt-2 h-11 w-full rounded-lg border border-white/12 bg-black px-3 text-sm text-white" />
           <label className="mt-5 block text-sm font-semibold text-zinc-300" htmlFor="profile-theme">Theme</label>
           <select id="profile-theme" value={tracker.data.preferences.theme} onChange={(event) => tracker.setPreferences({ theme: event.target.value as "dark" | "light" | "system" })} className="mt-2 h-11 w-full rounded-lg border border-white/12 bg-black px-3 text-sm text-white">
             <option value="system">System</option><option value="dark">Dark</option><option value="light">Light</option>

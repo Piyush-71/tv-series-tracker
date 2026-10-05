@@ -20,7 +20,7 @@ export function getTmdbMediaType(item: TmdbListItem, fallback: TmdbMediaType = "
 
 export function toMediaType(item: TmdbListItem, fallback?: TmdbMediaType): MediaType {
   const tmdbType = getTmdbMediaType(item, fallback);
-  const genres = item.genre_ids ?? [];
+  const genres = item.genre_ids ?? ("genres" in item ? (item as TmdbDetails).genres?.map((genre) => genre.id) : undefined) ?? [];
   const isAnime = tmdbType === "tv" && genres.includes(16) && item.origin_country?.includes("JP");
 
   return isAnime ? "anime" : tmdbType;

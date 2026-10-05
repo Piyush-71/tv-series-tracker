@@ -2,9 +2,10 @@ import { ArrowUpRight, CalendarDays, Flame, Star } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { FollowShowButton } from "@/components/schedule/follow-show-button";
+import { Airtime } from "@/components/schedule/airtime";
 import { ScheduleCountdown } from "@/components/schedule/schedule-countdown";
 import { TimezoneStatus } from "@/components/schedule/timezone-status";
-import { formatAirtime, getScheduleTrackerId } from "@/lib/schedule/format";
+import { getScheduleTrackerId } from "@/lib/schedule/format";
 import type { ScheduledEpisode, ShowSchedule } from "@/types/schedule";
 
 export function ShowScheduleView({ show }: { show: ShowSchedule }) {
@@ -57,7 +58,7 @@ export function ShowScheduleView({ show }: { show: ShowSchedule }) {
           {visibleEpisodes.map((episode) => (
             <div key={episode.id} className="flex items-center justify-between gap-3 rounded-lg border border-white/8 bg-black/20 px-3 py-2.5 text-sm">
               <span className="font-bold text-zinc-200">S{episode.seasonNumber} E{episode.episodeNumber}</span>
-              <span className="text-xs text-zinc-500">{formatAirtime(episode.airsAt)}</span>
+              <span className="text-xs text-zinc-500"><Airtime airsAt={episode.airsAt} /></span>
             </div>
           ))}
         </div>
@@ -75,7 +76,7 @@ function Moment({ title, episode }: { title: string; episode: ScheduledEpisode }
     <article className="rounded-2xl border border-white/10 bg-white/[0.045] p-5">
       <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em] text-blue-300"><CalendarDays size={14} /> {title}</div>
       <h2 className="mt-3 text-xl font-black text-white">Season {episode.seasonNumber}, Episode {episode.episodeNumber}</h2>
-      <p className="mt-2 text-sm text-zinc-400">{formatAirtime(episode.airsAt)}</p>
+      <p className="mt-2 text-sm text-zinc-400"><Airtime airsAt={episode.airsAt} /></p>
     </article>
   );
 }

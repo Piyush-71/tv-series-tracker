@@ -1,7 +1,8 @@
 import type { ScheduledEpisode } from "@/types/schedule";
 
-export function formatAirtime(airsAt: string) {
+export function formatAirtime(airsAt: string, timeZone: string) {
   return new Intl.DateTimeFormat("en-US", {
+    timeZone,
     weekday: "short",
     month: "short",
     day: "numeric",

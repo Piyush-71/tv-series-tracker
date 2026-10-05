@@ -3,9 +3,10 @@
 import { Bookmark, Flame } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { Airtime } from "@/components/schedule/airtime";
 import { ScheduleCountdown } from "@/components/schedule/schedule-countdown";
 import { useWatchlist } from "@/hooks/use-watchlist";
-import { formatAirtime, getScheduleTrackerId } from "@/lib/schedule/format";
+import { getScheduleTrackerId } from "@/lib/schedule/format";
 import type { ScheduledEpisode } from "@/types/schedule";
 
 export function ScheduleCard({ episode }: { episode: ScheduledEpisode }) {
@@ -38,7 +39,7 @@ export function ScheduleCard({ episode }: { episode: ScheduledEpisode }) {
               <Bookmark size={14} fill={saved ? "currentColor" : "none"} />
             </button>
           </div>
-          <p className="mt-2 line-clamp-1 text-[11px] text-zinc-500">{formatAirtime(episode.airsAt)}</p>
+          <p className="mt-2 line-clamp-1 text-[11px] text-zinc-500"><Airtime airsAt={episode.airsAt} /></p>
           <div className="mt-3">
             <ScheduleCountdown airsAt={episode.airsAt} />
           </div>
