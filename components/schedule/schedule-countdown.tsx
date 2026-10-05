@@ -1,7 +1,7 @@
 "use client";
 
+import { Airtime } from "@/components/schedule/airtime";
 import { useNow } from "@/hooks/use-now";
-import { formatAirtime } from "@/lib/schedule/format";
 
 export function ScheduleCountdown({ airsAt, large = false }: { airsAt: string; large?: boolean }) {
   const now = useNow();
@@ -36,7 +36,7 @@ export function ScheduleCountdown({ airsAt, large = false }: { airsAt: string; l
       </div>
       {large ? (
         <p className="mt-3 text-sm font-semibold text-zinc-300">
-          {distance < 0 ? "Aired" : "Airs"} {formatAirtime(airsAt)}
+          {distance < 0 ? "Aired" : "Airs"} <Airtime airsAt={airsAt} />
         </p>
       ) : null}
     </div>

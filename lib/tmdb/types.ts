@@ -26,6 +26,7 @@ export type TmdbListItem = {
   first_air_date?: string;
   genre_ids?: number[];
   vote_average?: number;
+  vote_count?: number;
   popularity?: number;
   origin_country?: string[];
   original_language?: string;
@@ -86,6 +87,8 @@ export type TmdbReleaseDate = {
 };
 
 export type TmdbDetails = TmdbListItem & {
+  seasons?: Array<{ season_number: number; air_date?: string | null; episode_count?: number }>;
+  production_countries?: Array<{ iso_3166_1: string; name: string }>;
   genres?: TmdbGenre[];
   videos?: { results: TmdbVideo[] };
   credits?: { cast: TmdbCastMember[] };

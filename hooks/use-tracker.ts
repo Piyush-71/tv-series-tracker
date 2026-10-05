@@ -1,5 +1,6 @@
 "use client";
 
+import { normalizeTimeZone } from "@/lib/timezone";
 import { useSyncExternalStore } from "react";
 import {
   createTrackerData,
@@ -162,7 +163,11 @@ export function useTracker() {
     setPreferences(preferences: Partial<TrackerData["preferences"]>) {
       update((current) => ({
         ...current,
-        preferences: { ...current.preferences, ...preferences },
+        preferences: {
+          ...current.preferences,
+          ...preferences,
+          timeZone: normalizeTimeZone(preferences.timeZone ?? current.preferences.timeZone),
+        },
       }));
     },
     replaceData(next: TrackerData) {

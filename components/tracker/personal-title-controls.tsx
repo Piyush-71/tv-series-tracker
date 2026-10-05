@@ -3,6 +3,7 @@
 import { CheckCircle2, Circle, Star } from "lucide-react";
 import type { MediaTitle } from "@/types/media";
 import { Button } from "@/components/ui/button";
+import { getReleasePresentation } from "@/lib/release";
 import { useTracker } from "@/hooks/use-tracker";
 
 export function PersonalTitleControls({ title }: { title: MediaTitle }) {
@@ -43,7 +44,7 @@ export function PersonalTitleControls({ title }: { title: MediaTitle }) {
       />
       <div className="mt-5 border-t border-white/10 pt-5">
         <label className="block text-sm font-semibold text-zinc-300" htmlFor={`release-${title.id}`}>Regional or corrected release time</label>
-        <p className="mt-1 text-xs text-zinc-500">Use an official regional date below, or enter a precise local time. This changes countdowns only in your browser.</p>
+        <p className="mt-1 text-xs text-zinc-500">Use an official regional date below, or enter a precise time in your device timezone. This changes countdowns only in your browser.</p>
         {title.releaseDates?.length ? (
           <select
             className="mt-3 h-11 w-full rounded-lg border border-white/12 bg-black px-3 text-sm text-white"
@@ -52,7 +53,7 @@ export function PersonalTitleControls({ title }: { title: MediaTitle }) {
             aria-label="Select an official release date"
           >
             <option value="">Primary release date</option>
-            {title.releaseDates.slice(0, 12).map((release, index) => <option key={`${release.kind}-${release.date}-${index}`} value={release.date}>{release.region} · {release.kind} · {new Date(release.date).toLocaleString()}</option>)}
+            {title.releaseDates.slice(0, 12).map((release, index) => <option key={`${release.kind}-${release.date}-${index}`} value={release.date}>{release.region} · {release.kind} · {getReleasePresentation({ releaseDate: release.date, timeZone: tracker.data.preferences.timeZone }).label}</option>)}
           </select>
         ) : null}
         <div className="mt-3 flex flex-wrap gap-2">

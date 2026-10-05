@@ -8,6 +8,15 @@ import {
 } from "@/lib/tracker";
 
 describe("personal tracker", () => {
+  it("recovers invalid saved timezones without losing tracker data", () => {
+    const saved = createTrackerData();
+    saved.watchlistIds = ["tv-42"];
+    saved.preferences.timeZone = "Invalid/Timezone";
+    const imported = importTrackerData(JSON.stringify(saved));
+    expect(imported.preferences.timeZone).toBe("UTC");
+    expect(imported.watchlistIds).toEqual(["tv-42"]);
+  });
+
   it("tracks episode progress through the public tracker data interface", () => {
     const initial = createTrackerData();
     const oneWatched = toggleEpisodeWatched(initial, "tv-42", "s1e1");

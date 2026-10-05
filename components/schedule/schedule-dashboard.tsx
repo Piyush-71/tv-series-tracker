@@ -18,7 +18,7 @@ export function ScheduleDashboard({ dashboard }: { dashboard: Dashboard }) {
               <span className="block bg-gradient-to-r from-violet-300 via-blue-300 to-rose-300 bg-clip-text text-transparent">and exact release times.</span>
             </h1>
             <p className="mt-4 max-w-2xl text-base leading-7 text-zinc-400">
-              See what is trending, discover new series premieres, and follow the next shows airing in your local timezone.
+              See what is trending, discover new series premieres, and follow the next shows airing in your selected timezone.
             </p>
           </div>
           <TimezoneStatus />
@@ -36,7 +36,7 @@ export function ScheduleDashboard({ dashboard }: { dashboard: Dashboard }) {
       </div>
 
       <p className="relative mx-auto mt-10 max-w-[1500px] text-center text-xs text-zinc-600">
-        Schedule data powered by <a href="https://simkl.com" target="_blank" rel="noreferrer" className="font-bold text-zinc-400 hover:text-white">Simkl</a>. Airtimes are displayed in your device timezone.
+        Schedule data powered by <a href="https://simkl.com" target="_blank" rel="noreferrer" className="font-bold text-zinc-400 hover:text-white">Simkl</a>. Airtimes are displayed in your selected timezone.
       </p>
     </div>
   );

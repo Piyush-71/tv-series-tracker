@@ -6,7 +6,7 @@ Cinecount is a schedule-first TV discovery and personal tracking application. It
 
 - A schedule dashboard for trending episodes, series premieres, season premieres, soon-to-air episodes, and recently aired episodes
 - Exact episode airtimes powered by Simkl's public TV calendar, with a bundled offline fallback schedule
-- Shared live countdown clock and automatic local-timezone formatting
+- Shared live countdown clock and browser-local timezone selection for schedule airtimes and countdown labels (defaults to the device timezone)
 - Trending and upcoming release discovery powered by TMDB, with a built-in fallback catalog
 - Search, category pages, title details, trailers, cast, streaming providers, and recommendations
 - Server-backed discovery filters for type, genre, year, country, original language, provider, and availability
