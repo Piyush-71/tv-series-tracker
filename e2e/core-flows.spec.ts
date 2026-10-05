@@ -72,7 +72,16 @@ test("search contains keyboard focus and restores it on dismissal", async ({ pag
   const input = dialog.getByLabel("Search titles, genres, or platforms");
   await expect(input).toBeFocused();
   await input.fill("Echoes");
+  await expect(dialog.getByRole("status")).toHaveText("1 titles found");
   await expect(dialog.getByRole("link", { name: /Echoes of Orion/ })).toBeVisible();
+  await page.keyboard.press("Shift+Tab");
+  await expect(dialog.getByRole("button", { name: "Close search" })).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(dialog.getByRole("link", { name: /Echoes of Orion/ })).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(dialog.getByRole("button", { name: "Close search" })).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(input).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(dialog).not.toBeVisible();
   await expect(trigger).toBeFocused();
