@@ -23,16 +23,31 @@ const cachedGenreLists = unstable_cache(async () => {
 
 const defaultOptions: BrowseOptions = {
   countries: [{ code: "US", label: "United States" }, { code: "GB", label: "United Kingdom" }, { code: "IN", label: "India" }, { code: "JP", label: "Japan" }, { code: "KR", label: "South Korea" }, { code: "FR", label: "France" }, { code: "DE", label: "Germany" }, { code: "CA", label: "Canada" }],
+  languages: [
+    { code: "ar", label: "Arabic" }, { code: "bn", label: "Bengali" },
+    { code: "zh", label: "Chinese" }, { code: "en", label: "English" },
+    { code: "fr", label: "French" }, { code: "de", label: "German" },
+    { code: "gu", label: "Gujarati" }, { code: "hi", label: "Hindi" },
+    { code: "it", label: "Italian" }, { code: "ja", label: "Japanese" },
+    { code: "kn", label: "Kannada" }, { code: "ko", label: "Korean" },
+    { code: "ml", label: "Malayalam" }, { code: "mr", label: "Marathi" },
+    { code: "pt", label: "Portuguese" }, { code: "pa", label: "Punjabi" },
+    { code: "ru", label: "Russian" }, { code: "es", label: "Spanish" },
+    { code: "ta", label: "Tamil" }, { code: "te", label: "Telugu" },
+    { code: "th", label: "Thai" }, { code: "tr", label: "Turkish" },
+    { code: "ur", label: "Urdu" },
+  ],
   genres: ["Action", "Action & Adventure", "Animation", "Comedy", "Crime", "Documentary", "Drama", "Family", "Fantasy", "Horror", "Mystery", "Romance", "Sci-Fi & Fantasy", "Science Fiction", "Thriller"],
 };
 
 const cachedOptions = unstable_cache(async (): Promise<BrowseOptions> => {
-  const [genres, countries] = await Promise.all([
+  const [genres, countries, languages] = await Promise.all([
     cachedGenreLists(),
     tmdbFetch<Array<{ iso_3166_1: string; english_name: string }>>("/configuration/countries", { revalidate: REVALIDATE }),
+    tmdbFetch<Array<{ iso_639_1: string; english_name: string }>>("/configuration/languages", { revalidate: REVALIDATE }),
   ]);
-  return { genres: [...new Set(genres.map((genre) => genre.name))].sort(), countries: countries.map((country) => ({ code: country.iso_3166_1, label: country.english_name })).sort((a, b) => a.label.localeCompare(b.label)) };
-}, ["browse-options-v1"], { revalidate: REVALIDATE });
+  return { genres: [...new Set(genres.map((genre) => genre.name))].sort(), countries: countries.map((country) => ({ code: country.iso_3166_1, label: country.english_name })).sort((a, b) => a.label.localeCompare(b.label)), languages: languages.map((language) => ({ code: language.iso_639_1, label: language.english_name || language.iso_639_1 })).sort((a, b) => a.label.localeCompare(b.label)) };
+}, ["browse-options-v2"], { revalidate: REVALIDATE });
 
 export async function getBrowseOptions(): Promise<BrowseOptions> {
   if (!hasTmdbCredentials()) return defaultOptions;

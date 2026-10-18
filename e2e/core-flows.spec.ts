@@ -32,6 +32,42 @@ test("discovery applies filters and displays verified cards", async ({ page }) =
   await expect(page.locator("article").first()).toContainText("Echoes of Orion");
 });
 
+for (const mobile of [false, true]) {
+  for (const mode of ["tv", "movie"]) {
+    test(`language filters apply and persist for ${mode} on ${mobile ? "mobile" : "desktop"}`, async ({ page }) => {
+      if (mobile) await page.setViewportSize({ width: 375, height: 812 });
+      await page.route("**/api/browse?**", (route) => route.fulfill({
+        json: {
+          results: [], totalResults: 0, totalPages: 0, page: 1, hasMore: false, snapshot: "0123456789abcdef",
+          coverage: { configured: true, verifiedTitles: 0, candidateTitles: 0, unavailableTitles: 0, updatedAt: "2026-10-18" },
+        },
+      }));
+      await page.goto(`/explore?type=${mode}`);
+      await expect(page.getByRole("button", { name: "Apply filters", exact: true })).toBeEnabled();
+      if (mobile) await page.getByRole("button", { name: "Filters", exact: true }).click();
+      await page.getByRole("button", { name: "All languages", exact: true }).click();
+      const picker = page.getByRole("dialog", { name: "Choose language", exact: true });
+      await expect(picker.getByRole("textbox", { name: "Find language" })).toBeFocused();
+      await picker.getByRole("textbox", { name: "Find language" }).fill("Hindi");
+      await picker.getByRole("checkbox", { name: "Hindi", exact: true }).check();
+      await picker.getByRole("textbox", { name: "Find language" }).fill("Tamil");
+      await picker.getByRole("checkbox", { name: "Tamil", exact: true }).check();
+      await page.keyboard.press("Escape");
+      await expect(page.getByRole("button", { name: "Language (2)", exact: true })).toBeFocused();
+      const appliedRequest = page.waitForRequest((request) => request.url().includes("/api/browse?") && new URL(request.url()).searchParams.getAll("language").length === 2);
+      const form = mobile ? page.getByRole("dialog", { name: "Explore filters", exact: true }) : page.getByRole("form", { name: "Explore filters", exact: true });
+      await form.getByRole("button", { name: "Apply filters", exact: true }).click();
+      expect(new URL((await appliedRequest).url()).searchParams.getAll("language")).toEqual(["hi", "ta"]);
+      await expect(page.getByRole("button", { name: "Remove filter Language: Hindi", exact: true })).toBeVisible();
+      await page.reload();
+      await expect(page.getByRole("button", { name: "Remove filter Language: Tamil", exact: true })).toBeVisible();
+      await page.getByRole("button", { name: "Remove filter Language: Hindi", exact: true }).click();
+      await expect.poll(() => new URL(page.url()).searchParams.getAll("language")).toEqual(["ta"]);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    });
+  }
+}
+
 test("saving a show updates all copies and portable tracker data", async ({ page }) => {
   await page.goto("/");
   const add = page.getByRole("button", { name: /^Add .* to My Countdowns$/ }).first();

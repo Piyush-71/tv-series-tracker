@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   LoaderCircle,
@@ -12,7 +12,12 @@ import {
 import { useTracker } from "@/hooks/use-tracker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Dialog } from "@/components/ui/dialog";
 import { BrowseCard } from "@/components/media/browse-card";
+import {
+  ExploreFilterFields,
+  activeFilterCount,
+} from "@/components/media/explore-filter-fields";
 import {
   browseQueryParams,
   defaultBrowseQuery,
@@ -68,6 +73,16 @@ function navigate(query: BrowseQuery, replace = false) {
   else window.history.pushState(null, "", url);
 }
 
+function subscribeToViewport(onChange: () => void) {
+  const viewport = window.matchMedia?.("(max-width: 767px)");
+  viewport?.addEventListener("change", onChange);
+  return () => viewport?.removeEventListener("change", onChange);
+}
+
+function mobileViewport() {
+  return window.matchMedia?.("(max-width: 767px)").matches ?? false;
+}
+
 export function ExploreClient({ options }: { options: BrowseOptions }) {
   const params = useSearchParams();
   const { data } = useTracker();
@@ -111,7 +126,12 @@ function ExploreSession({
   options: BrowseOptions;
 }) {
   const [draft, setDraft] = useState(applied);
-  const [expanded, setExpanded] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const mobile = useSyncExternalStore(
+    subscribeToViewport,
+    mobileViewport,
+    () => false,
+  );
   const [result, setResult] = useState<BrowsePage | null>(null);
   const [loading, setLoading] = useState(!initialError);
   const [error, setError] = useState(initialError);
@@ -157,6 +177,7 @@ function ExploreSession({
       );
       setError("");
       setDraft(normalized);
+      setFiltersOpen(false);
       setLoading(true);
       const sameQuery =
         browseQueryParams(normalized).toString() ===
@@ -190,6 +211,7 @@ function ExploreSession({
     setDraft((current) => ({
       ...defaultBrowseQuery(mode, applied.timeZone),
       countries: current.countries,
+      languages: current.languages,
       genres: current.genres,
       query: current.query,
       minRating: current.minRating,
@@ -205,7 +227,31 @@ function ExploreSession({
     browseQueryParams({ ...applied, page: 1, snapshot: undefined }).toString();
   const movie = draft.mode === "movie";
   const hideDates = !movie && draft.premiere === "airing";
+  const filterCount = activeFilterCount(draft);
+  const canReset =
+    filterCount > 0 || activeFilterCount(applied) > 0 || !!initialError;
+  const filterFields = (
+    <ExploreFilterFields
+      draft={draft}
+      options={options}
+      premieres={premieres}
+      ranges={ranges}
+      sorts={sortOptions(movie)}
+      onChange={updateDraft}
+    />
+  );
+  const filterHint = hideDates
+    ? "Started seasons with a confirmed future episode, including midseason breaks. Seasons with unknown completion status are excluded."
+    : `Dates use ${applied.timeZone}. ${movie ? "Original movie release dates." : "Dates refer to the matching season’s premiere."}`;
   const chips: Array<{ label: string; remove: () => void }> = [
+    ...applied.languages.map((language) => ({
+      label: `Language: ${options.languages.find((option) => option.code === language)?.label || language}`,
+      remove: () =>
+        apply({
+          ...applied,
+          languages: applied.languages.filter((value) => value !== language),
+        }),
+    })),
     ...applied.countries.map((country) => ({
       label:
         options.countries.find((option) => option.code === country)?.label ||
@@ -261,30 +307,49 @@ function ExploreSession({
           event.preventDefault();
           apply();
         }}
-        className="rounded-2xl border border-border bg-surface p-4 sm:p-6"
+        aria-label="Explore filters"
+        className="space-y-3 rounded-2xl border border-border bg-surface p-4"
       >
-        <div
-          role="group"
-          aria-label="Content type"
-          className="mb-5 flex flex-wrap gap-2 sm:w-fit"
-        >
-          {modes.map((mode) => (
-            <button
-              type="button"
-              key={mode.value}
-              aria-pressed={draft.mode === mode.value}
-              onClick={() => changeMode(mode.value)}
-              className={`min-h-11 flex-1 rounded-full px-5 py-2.5 text-sm font-semibold transition sm:flex-none ${draft.mode === mode.value ? "bg-foreground text-background" : "border border-border text-muted hover:text-foreground"}`}
+        <div className="flex items-center justify-between gap-3">
+          <div
+            role="group"
+            aria-label="Content type"
+            className="flex w-full gap-1 rounded-xl border border-border bg-background p-1 md:w-fit"
+          >
+            {modes.map((mode) => (
+              <button
+                type="button"
+                key={mode.value}
+                aria-pressed={draft.mode === mode.value}
+                onClick={() => changeMode(mode.value)}
+                className={`min-h-11 flex-1 rounded-lg px-3 text-sm font-semibold transition-colors md:flex-none md:px-5 ${draft.mode === mode.value ? "bg-surface-raised text-accent" : "text-muted hover:bg-surface hover:text-foreground"}`}
+              >
+                {mode.label}
+              </button>
+            ))}
+          </div>
+          {canReset && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={reset}
+              disabled={loading}
+              className="hidden rounded-lg md:inline-flex"
             >
-              {mode.label}
-            </button>
-          ))}
+              <RotateCcw size={14} aria-hidden="true" />
+              Clear filters
+            </Button>
+          )}
         </div>
-        <label className="block">
-          <span className="mb-2 block text-sm font-medium text-muted">
-            Search by title
-          </span>
+        <label className="relative block">
+          <span className="sr-only">Search by title</span>
+          <Search
+            size={18}
+            aria-hidden="true"
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted"
+          />
           <Input
+            className="h-11 rounded-lg pl-10 text-base md:text-sm"
             aria-label="Search by title"
             placeholder="Search by title…"
             maxLength={100}
@@ -292,141 +357,102 @@ function ExploreSession({
             onChange={(event) => updateDraft({ query: event.target.value })}
           />
         </label>
-        <button
-          type="button"
-          aria-expanded={expanded}
-          aria-controls="browse-filter-fields"
-          className="mt-4 flex items-center gap-2 text-sm text-foreground md:hidden"
-          onClick={() => setExpanded(!expanded)}
-        >
-          <SlidersHorizontal size={16} />
-          {expanded ? "Hide filters" : "Show filters"}
-        </button>
-        <div
-          id="browse-filter-fields"
-          className={`mt-5 gap-4 md:grid md:grid-cols-2 lg:grid-cols-3 ${expanded ? "grid" : "hidden"}`}
-        >
-          {!movie && (
-            <Select
-              label="Season status"
-              value={draft.premiere}
-              options={premieres}
-              onChange={(value) =>
-                setDraft((current) => ({
-                  ...current,
-                  premiere: value,
-                  range:
-                    value === "airing"
-                      ? "all"
-                      : current.range === "all"
-                        ? "30"
-                        : current.range,
-                }))
-              }
-            />
-          )}
-          <MultiSelect
-            label="Country of origin"
-            options={options.countries.map((country) => ({
-              value: country.code,
-              label: country.label,
-            }))}
-            selected={draft.countries}
-            onChange={(countries) => updateDraft({ countries })}
-          />
-          <MultiSelect
-            label="Genre"
-            options={options.genres.map((genre) => ({
-              value: genre,
-              label: genre,
-            }))}
-            selected={draft.genres}
-            onChange={(genres) => updateDraft({ genres })}
-          />
-          {!hideDates && (
-            <Select
-              label={movie ? "Release-date range" : "Premiere-date range"}
-              value={draft.range}
-              options={ranges}
-              onChange={(range) => updateDraft({ range })}
-            />
-          )}
-          <label className="block text-sm font-medium text-muted">
-            Minimum TMDB title rating / 10
-            <Input
-              className="mt-2"
-              type="number"
-              min="0"
-              max="10"
-              step="0.1"
-              placeholder="Any rating"
-              value={draft.minRating ?? ""}
-              onChange={(event) =>
-                updateDraft({
-                  minRating:
-                    event.target.value === ""
-                      ? null
-                      : Number(event.target.value),
-                })
-              }
-            />
-          </label>
-          <Select
-            label="Sort results"
-            value={draft.sort}
-            options={sortOptions(movie)}
-            onChange={(sort) => updateDraft({ sort })}
-          />
-          {!hideDates && draft.range === "custom" && (
-            <div className="grid grid-cols-2 gap-3 md:col-span-2">
-              <label className="text-sm font-medium text-muted">
-                From
-                <Input
-                  className="mt-2"
-                  type="date"
-                  required
-                  value={draft.from}
-                  onChange={(event) =>
-                    updateDraft({ from: event.target.value })
-                  }
-                />
-              </label>
-              <label className="text-sm font-medium text-muted">
-                Through
-                <Input
-                  className="mt-2"
-                  type="date"
-                  required
-                  min={draft.from || undefined}
-                  value={draft.to}
-                  onChange={(event) => updateDraft({ to: event.target.value })}
-                />
-              </label>
-            </div>
-          )}
-        </div>
-        <p className="mt-4 text-xs leading-relaxed text-muted">
-          {hideDates
-            ? "Started seasons with a confirmed future episode, including midseason breaks. Seasons with unknown completion status are excluded."
-            : `Dates use ${applied.timeZone}. ${movie ? "Original movie release dates." : "Dates refer to the matching season’s premiere."}`}{" "}
-          Select any matching country or genre; different filters combine.
-        </p>
-        <div className="mt-5 flex flex-wrap items-center gap-3">
-          <Button type="submit" disabled={loading}>
-            <Search size={16} />
+        <div className="hidden md:block">{!mobile && filterFields}</div>
+        <div className="flex items-center justify-between gap-3 md:border-t md:border-border md:pt-3">
+          <Button
+            variant="secondary"
+            size="sm"
+            aria-haspopup="dialog"
+            aria-expanded={filtersOpen}
+            onClick={() => setFiltersOpen(true)}
+            className="rounded-lg px-3 md:hidden"
+          >
+            <SlidersHorizontal size={16} aria-hidden="true" />
+            Filters{filterCount > 0 ? ` (${filterCount})` : ""}
+          </Button>
+          <div className="hidden min-w-0 md:block">
+            <p className="text-xs leading-relaxed text-muted">
+              {filterHint} Languages match the title’s original language.
+              Select any matching country, language, or genre; different
+              filters combine.
+            </p>
+            {pending && (
+              <p className="mt-1 text-xs text-accent">Changes ready to apply</p>
+            )}
+          </div>
+          <Button
+            type="submit"
+            size="sm"
+            disabled={loading}
+            className="rounded-lg px-3 md:px-4"
+          >
+            <Search size={16} aria-hidden="true" className="hidden md:block" />
             Apply filters
           </Button>
-          <Button variant="ghost" onClick={reset} disabled={loading}>
-            <RotateCcw size={16} />
-            Reset
-          </Button>
-          {pending && (
-            <span className="text-xs text-foreground">
-              Changes ready to apply
-            </span>
-          )}
         </div>
       </form>
+      <Dialog
+        open={filtersOpen}
+        onOpenChange={setFiltersOpen}
+        label="Explore filters"
+        className="inset-0 my-auto! max-w-lg"
+      >
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            apply();
+          }}
+          className="space-y-4 p-5"
+        >
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold">Filters</h2>
+              <p className="text-xs text-muted">Refine your next watch.</p>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Close filters"
+              data-autofocus
+              onClick={() => setFiltersOpen(false)}
+              className="rounded-lg"
+            >
+              <X size={20} aria-hidden="true" />
+            </Button>
+          </div>
+          {filterFields}
+          <p className="text-xs leading-relaxed text-muted">
+            {filterHint} Languages match the title’s original language.
+            Select any matching country, language, or genre; different filters combine.
+          </p>
+          {error && (
+            <p role="alert" className="text-sm text-danger">
+              {error}
+            </p>
+          )}
+          <div className="flex items-center justify-between gap-3 border-t border-border pt-4">
+            {canReset && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={reset}
+                disabled={loading}
+                className="rounded-lg px-2"
+              >
+                <RotateCcw size={14} aria-hidden="true" />
+                Clear filters
+              </Button>
+            )}
+            <Button
+              type="submit"
+              disabled={loading}
+              className="ml-auto rounded-lg"
+            >
+              Apply filters
+            </Button>
+          </div>
+        </form>
+      </Dialog>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-bold text-foreground">
           {modes.find((mode) => mode.value === applied.mode)?.label}
@@ -450,10 +476,10 @@ function ExploreSession({
               onClick={chip.remove}
               disabled={loading}
               aria-label={`Remove filter ${chip.label}`}
-              className="inline-flex items-center gap-2 rounded-full border border-border bg-surface-raised min-h-11 px-3 py-2 text-xs text-foreground disabled:opacity-50"
+              className="inline-flex min-h-11 items-center gap-2 rounded-full border border-border bg-surface-raised px-3 py-2 text-xs text-foreground disabled:opacity-50 md:min-h-8 md:py-1"
             >
               {chip.label}
-              <X size={12} />
+              <X size={12} aria-hidden="true" />
             </button>
           ))}
         </div>
@@ -524,9 +550,11 @@ function ExploreSession({
                 Try a wider date range or remove a country, genre, or rating
                 filter.
               </p>
-              <Button className="mt-5" variant="secondary" onClick={clear}>
-                Clear filters
-              </Button>
+              {chips.length > 0 && (
+                <Button className="mt-5" variant="secondary" onClick={clear}>
+                  Clear filters
+                </Button>
+              )}
             </div>
           )}
           {result.hasMore && (
@@ -560,104 +588,6 @@ function ExploreSession({
           )}
         </>
       )}
-    </div>
-  );
-}
-
-function Select<T extends string>({
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  label: string;
-  value: T;
-  options: Array<{ value: T; label: string }>;
-  onChange: (value: T) => void;
-}) {
-  return (
-    <label className="block text-sm font-medium text-muted">
-      {label}
-      <select
-        aria-label={label}
-        value={value}
-        onChange={(event) => {
-          const option = options.find(
-            (item) => item.value === event.target.value,
-          );
-          if (option) onChange(option.value);
-        }}
-        className="mt-2 h-11 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-foreground"
-      >
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
-
-function MultiSelect({
-  label,
-  options,
-  selected,
-  onChange,
-}: {
-  label: string;
-  options: Array<{ value: string; label: string }>;
-  selected: string[];
-  onChange: (values: string[]) => void;
-}) {
-  const [search, setSearch] = useState("");
-  const filtered = options.filter((option) =>
-    option.label.toLowerCase().includes(search.toLowerCase()),
-  );
-  return (
-    <div className="text-sm font-medium text-muted">
-      <p>{label}</p>
-      <details className="mt-2 rounded-lg border border-border bg-background">
-        <summary className="cursor-pointer p-3 text-sm text-foreground">
-          {selected.length
-            ? `${selected.length} selected`
-            : `All ${label === "Genre" ? "genres" : "countries"}`}
-        </summary>
-        <div className="border-t border-border p-3">
-          <Input
-            aria-label={`Find ${label.toLowerCase()}`}
-            placeholder={`Find ${label.toLowerCase()}…`}
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-          />
-          <fieldset className="mt-3 max-h-48 space-y-1 overflow-y-auto">
-            <legend className="sr-only">{label}</legend>
-            {filtered.map((option) => (
-              <label
-                key={option.value}
-                className="flex cursor-pointer items-center gap-2 rounded px-1 py-2 font-normal text-foreground hover:bg-surface"
-              >
-                <input
-                  type="checkbox"
-                  checked={selected.includes(option.value)}
-                  onChange={(event) =>
-                    onChange(
-                      event.target.checked
-                        ? [...selected, option.value]
-                        : selected.filter((value) => value !== option.value),
-                    )
-                  }
-                  className="accent-foreground"
-                />
-                {option.label}
-              </label>
-            ))}
-            {!filtered.length && (
-              <p className="py-2 font-normal">No options match.</p>
-            )}
-          </fieldset>
-        </div>
-      </details>
     </div>
   );
 }

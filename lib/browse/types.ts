@@ -9,6 +9,7 @@ export type BrowseQuery = {
   mode: BrowseMode;
   premiere: PremiereFilter;
   countries: string[];
+  languages: string[];
   genres: string[];
   query: string;
   range: DateRange;
@@ -67,5 +68,6 @@ export type BrowsePage = {
 
 export type BrowseOptions = {
   countries: Array<{ code: string; label: string }>;
+  languages: Array<{ code: string; label: string }>;
   genres: string[];
 };

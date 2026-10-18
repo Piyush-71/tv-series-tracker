@@ -4,7 +4,7 @@ import type { BrowseMode, BrowseQuery, BrowseSort, DateRange, PremiereFilter } f
 export class BrowseInputError extends Error {}
 
 export function defaultBrowseQuery(mode: BrowseMode = "tv", timeZone = "UTC"): BrowseQuery {
-  return { mode, premiere: "new", countries: [], genres: [], query: "", range: "30", from: "", to: "", minRating: null, sort: "newest", timeZone, page: 1 };
+  return { mode, premiere: "new", countries: [], languages: [], genres: [], query: "", range: "30", from: "", to: "", minRating: null, sort: "newest", timeZone, page: 1 };
 }
 
 function enumValue<T extends string>(value: string | null, values: readonly T[], fallback: T, label: string): T {
@@ -29,6 +29,8 @@ export function parseBrowseQuery(params: URLSearchParams, fallbackTimeZone = "UT
   if (result.query.length > 100) throw new BrowseInputError("Search must be 100 characters or fewer.");
   result.countries = [...new Set(params.getAll("country").flatMap((value) => value.split(",")).filter(Boolean).map((value) => value.toUpperCase()))];
   if (result.countries.length > 30 || result.countries.some((value) => !/^[A-Z]{2}$/.test(value))) throw new BrowseInputError("Choose valid country codes (up to 30).");
+  result.languages = [...new Set(params.getAll("language").flatMap((value) => value.split(",")).filter(Boolean).map((value) => value.toLowerCase()))];
+  if (result.languages.length > 30 || result.languages.some((value) => !/^[a-z]{2}$/.test(value))) throw new BrowseInputError("Choose valid language codes (up to 30).");
   result.genres = [...new Set(params.getAll("genre").map((value) => value.trim()).filter(Boolean))];
   if (result.genres.length > 30 || result.genres.some((value) => value.length > 50)) throw new BrowseInputError("Choose valid genres (up to 30).");
   if (result.range === "custom") {
@@ -64,6 +66,7 @@ export function browseQueryParams(query: BrowseQuery): URLSearchParams {
   }
   if (query.query.trim()) params.set("q", query.query.trim());
   query.countries.forEach((country) => params.append("country", country));
+  query.languages.forEach((language) => params.append("language", language));
   query.genres.forEach((genre) => params.append("genre", genre));
   if (query.minRating !== null) params.set("minRating", String(query.minRating));
   if (query.page > 1) params.set("page", String(query.page));

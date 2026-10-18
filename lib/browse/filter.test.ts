@@ -11,6 +11,17 @@ function record(overrides: Partial<TmdbDetails> = {}): BrowseRecord { return toB
 function query(overrides: Partial<BrowseQuery> = {}): BrowseQuery { return { ...defaultBrowseQuery(), premiere: "returning", ...overrides }; }
 
 describe("browse season selection", () => {
+  it.each(["tv", "movie"] as const)("filters %s by original language and combines it with country and genre", (mode) => {
+    const records = [
+      { id: 1, original_language: "hi" },
+      { id: 2, original_language: "ta" },
+      { id: 3, original_language: "en" },
+      { id: 4, original_language: undefined },
+      { id: 5, original_language: "hi", origin_country: ["US"] },
+    ].map((overrides) => toBrowseRecord({ ...details, title: "Film", release_date: "2026-10-01", origin_country: ["IN"], ...overrides }, new Map(), mode));
+    expect(filterBrowseRecords(records, query({ mode, languages: ["hi", "ta"], countries: ["IN"], genres: ["Drama"] }), now).map((item) => item.title.id)).toEqual([`${mode}-1`, `${mode}-2`]);
+    expect(filterBrowseRecords(records, query({ mode }), now)).toHaveLength(5);
+  });
   it("uses the most recent matching returning season, not the series first-air date", () => {
     expect(filterBrowseRecords([record()], query(), now)).toMatchObject([{ season: 3, date: "2026-10-02" }]);
     expect(filterBrowseRecords([record()], query({ premiere: "new" }), now)).toEqual([]);
