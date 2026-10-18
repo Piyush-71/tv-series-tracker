@@ -1,14 +1,14 @@
 import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
-
 export function GenrePills({ genres }: { genres: string[] }) {
   return (
     <div className="flex flex-wrap gap-2">
       {genres.map((genre) => (
-        <Link key={genre} href={`/category/${genre.toLowerCase().replaceAll(" ", "-")}`}>
-          <Badge className="transition hover:border-violet-300/60 hover:bg-violet-400/15">
-            {genre}
-          </Badge>
+        <Link
+          key={genre}
+          href={`/category/${genre.toLowerCase().replaceAll(" ", "-")}`}
+          className="inline-flex min-h-11 items-center rounded-full border border-border px-4 text-xs font-medium transition-colors hover:bg-surface-raised"
+        >
+          {genre}
         </Link>
       ))}
     </div>

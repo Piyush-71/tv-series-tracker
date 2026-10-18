@@ -1,38 +1,73 @@
-import { CalendarDays, Compass, ListVideo, UserRound } from "lucide-react";
+import { ArrowUpRight, Clapperboard } from "lucide-react";
 import Link from "next/link";
-
 export function Footer() {
   return (
-    <footer className="border-t border-white/10 px-4 py-10 sm:px-6 lg:px-10">
-      <div className="grid gap-8 md:grid-cols-[1.4fr_1fr_1fr]">
-        <div>
-          <h2 className="text-xl font-black text-white">Cinecount</h2>
-          <p className="mt-3 max-w-md text-sm leading-6 text-zinc-400">
-            Track exact TV episode airtimes, new series premieres, and personal countdowns in your local timezone.
-          </p>
-        </div>
-        <div className="grid gap-2 text-sm">
-          <Link href="/trending" className="text-zinc-400 hover:text-white">Trending</Link>
-          <Link href="/upcoming" className="text-zinc-400 hover:text-white">Upcoming</Link>
-          <Link href="/soon" className="text-zinc-400 hover:text-white">Airing Soon</Link>
-          <Link href="/my-countdowns" prefetch={false} className="text-zinc-400 hover:text-white">My Countdowns</Link>
-        </div>
-        <div className="flex items-start gap-3">
-          {[
-            [Compass, "Explore", "/explore"],
-            [CalendarDays, "Episode calendar", "/calendar"],
-            [ListVideo, "My Countdowns", "/my-countdowns"],
-            [UserRound, "Profile", "/profile"],
-          ].map(([Icon, label, href]) => (
+    <footer className="border-t border-border bg-surface">
+      <div className="page-shell py-12">
+        <div className="flex flex-col justify-between gap-8 sm:flex-row sm:items-center">
+          <div>
             <Link
-              key={String(href)}
-              href={String(href)}
-              aria-label={String(label)}
-              className="grid h-10 w-10 place-items-center rounded-lg border border-white/10 bg-white/5 text-zinc-300 transition hover:border-violet-300/50 hover:text-white"
+              href="/"
+              className="inline-flex min-h-11 items-center gap-2.5 text-xl font-semibold tracking-tight"
             >
-              <Icon size={18} />
+              <Clapperboard size={22} aria-hidden="true" />
+              cinecount.
             </Link>
-          ))}
+            <p className="mt-2 max-w-sm text-sm leading-6 text-muted">
+              Good stories are worth the wait.
+              <br />
+              Find your next one. Keep it close.
+            </p>
+          </div>
+          <nav
+            aria-label="Footer navigation"
+            className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted"
+          >
+            <Link
+              className="inline-flex min-h-11 items-center hover:text-foreground"
+              href="/explore"
+            >
+              Explore
+            </Link>
+            <Link
+              className="inline-flex min-h-11 items-center hover:text-foreground"
+              href="/trending"
+            >
+              Trending
+            </Link>
+            <Link
+              className="inline-flex min-h-11 items-center hover:text-foreground"
+              href="/category/anime"
+            >
+              Anime
+            </Link>
+            <Link
+              className="inline-flex min-h-11 items-center gap-1 hover:text-foreground"
+              href="/my-countdowns"
+              prefetch={false}
+            >
+              My Countdowns <ArrowUpRight size={15} aria-hidden="true" />
+            </Link>
+            <Link
+              href="/calendar"
+              className="inline-flex min-h-11 items-center hover:text-foreground"
+            >
+              Calendar
+            </Link>
+            <Link
+              href="/profile"
+              className="inline-flex min-h-11 items-center hover:text-foreground"
+            >
+              Profile
+            </Link>
+          </nav>
+        </div>
+        <div className="mt-10 flex flex-wrap justify-between gap-3 border-t border-border pt-6 text-xs leading-5 text-muted">
+          <p>
+            © {new Date().getFullYear()} Cinecount. Made for the love of
+            stories.
+          </p>
+          <p>Movie and TV data provided by TMDB.</p>
         </div>
       </div>
     </footer>

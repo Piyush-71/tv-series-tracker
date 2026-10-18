@@ -1,11 +1,12 @@
 "use client";
-
-import { motion } from "framer-motion";
 import { CalendarDays, Clock3 } from "lucide-react";
-import { getReleasePresentation, getTimeLeft, type ReleasePrecision } from "@/lib/release";
+import {
+  getReleasePresentation,
+  getTimeLeft,
+  type ReleasePrecision,
+} from "@/lib/release";
 import { useTracker } from "@/hooks/use-tracker";
 import { useNow } from "@/hooks/use-now";
-
 export function CountdownTimer({
   releaseDate,
   titleId,
@@ -18,77 +19,67 @@ export function CountdownTimer({
   compact?: boolean;
 }) {
   const tracker = useTracker();
-  const effectiveReleaseDate = titleId ? tracker.data.releaseOverrides[titleId] ?? releaseDate : releaseDate;
-  const effectivePrecision = titleId && tracker.data.releaseOverrides[titleId] ? "datetime" : releasePrecision;
+  const effectiveDate = titleId
+    ? (tracker.data.releaseOverrides[titleId] ?? releaseDate)
+    : releaseDate;
+  const precision =
+    titleId && tracker.data.releaseOverrides[titleId]
+      ? "datetime"
+      : releasePrecision;
   const timeZone = tracker.data.preferences.timeZone || "UTC";
-  const presentation = getReleasePresentation({ releaseDate: effectiveReleaseDate, releasePrecision: effectivePrecision, timeZone });
   const now = useNow();
-  const timeLeft = now
-    ? getTimeLeft(effectiveReleaseDate, new Date(now))
-    : { days: 0, hours: 0, minutes: 0, seconds: 0 };
-
-  if (!presentation.showCountdown) {
+  const presentation = getReleasePresentation({
+    releaseDate: effectiveDate,
+    releasePrecision: precision,
+    timeZone,
+    now: new Date(now || 0),
+  });
+  const time = now ? getTimeLeft(effectiveDate, new Date(now)) : null;
+  if (!presentation.showCountdown)
     return (
-      <div className={compact ? "rounded-md border border-white/10 bg-black/55 px-2.5 py-2 text-xs text-white" : "rounded-lg border border-white/12 bg-white/10 p-4 text-white backdrop-blur-xl"}>
-        <div className="flex items-center gap-2 font-bold">
-          <CalendarDays size={compact ? 14 : 18} />
-          <span>{presentation.label}</span>
-        </div>
-        {compact ? null : <p className="mt-1 text-xs text-zinc-300">{effectivePrecision === "date" ? "Date supplied without an exact airtime" : `Exact time shown in ${presentation.timeZoneLabel}`}</p>}
+      <div className={compact ? "text-xs" : "text-sm"}>
+        <p className="inline-flex items-center gap-2 font-medium">
+          <CalendarDays size={compact ? 14 : 18} aria-hidden="true" />
+          {presentation.label}
+        </p>
+        {compact ? null : (
+          <p className="mt-2 text-xs opacity-80">
+            {precision === "date"
+              ? "Exact airtime hasn’t been announced"
+              : presentation.timeZoneLabel}
+          </p>
+        )}
       </div>
     );
-  }
-
-  const units = [
-    ["D", timeLeft.days],
-    ["H", timeLeft.hours],
-    ["M", timeLeft.minutes],
-    ["S", timeLeft.seconds],
-  ] as const;
-
   return (
     <div>
-      <div className={compact ? "flex gap-1.5" : "grid grid-cols-4 gap-2 sm:gap-3"}>
-        {units.map(([label, value]) => (
-        <motion.div
-          key={label}
-          layout
-          className={
-            compact
-              ? "min-w-10 rounded-md border border-white/10 bg-black/45 px-2 py-1 text-center"
-              : "rounded-lg border border-white/12 bg-white/10 p-3 text-center backdrop-blur-xl"
-          }
-        >
-          <motion.div
-            key={value}
-            initial={{ y: -6, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            className={
-              compact
-                ? "text-sm font-bold text-white"
-                : "text-2xl font-black text-white sm:text-4xl"
-            }
-          >
-            {String(value).padStart(label === "D" ? 1 : 2, "0")}
-          </motion.div>
-
-          <div
-            className={
-              compact
-                ? "text-[10px] text-zinc-400"
-                : "text-xs font-semibold text-zinc-400"
-            }
-          >
-            {label}
+      <div
+        className={compact ? "flex gap-3" : "flex flex-wrap gap-5 sm:gap-7"}
+        role="timer"
+        aria-label="Time until release"
+      >
+        {(["days", "hours", "minutes", "seconds"] as const).map((unit) => (
+          <div key={unit}>
+            <p
+              className={
+                compact
+                  ? "text-sm font-semibold tabular-nums"
+                  : "text-3xl font-medium tabular-nums tracking-tight"
+              }
+            >
+              {time ? String(time[unit]).padStart(2, "0") : "—"}
+            </p>
+            <p className="mt-1 text-[10px] uppercase tracking-wider opacity-80">
+              {unit}
+            </p>
           </div>
-        </motion.div>
         ))}
       </div>
       {compact ? null : (
-        <div className="mt-2 flex items-center gap-1.5 text-xs text-zinc-300">
-          <Clock3 size={13} />
+        <p className="mt-3 flex items-center gap-1.5 text-xs opacity-80">
+          <Clock3 size={13} aria-hidden="true" />
           {presentation.label} · {presentation.timeZoneLabel}
-        </div>
+        </p>
       )}
     </div>
   );

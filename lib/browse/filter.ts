@@ -35,6 +35,7 @@ export function filterBrowseRecords(records: BrowseRecord[], query: BrowseQuery,
     if (title.type !== query.mode) continue;
     if (query.query && !title.title.toLocaleLowerCase().includes(query.query.toLocaleLowerCase())) continue;
     if (query.countries.length && !query.countries.some((country) => title.originCountries?.includes(country))) continue;
+    if (query.languages.length && (!title.originalLanguage || !query.languages.includes(title.originalLanguage))) continue;
     if (query.genres.length && !query.genres.some((genre) => title.genres.some((value) => value.toLowerCase() === genre.toLowerCase()))) continue;
     if (query.minRating !== null && (record.rating === null || record.rating < query.minRating)) continue;
 

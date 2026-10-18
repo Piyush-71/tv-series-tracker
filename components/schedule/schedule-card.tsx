@@ -1,55 +1,84 @@
 "use client";
-
-import { Bookmark, Flame } from "lucide-react";
+import { Bookmark, Check, Flame } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { Airtime } from "@/components/schedule/airtime";
 import { ScheduleCountdown } from "@/components/schedule/schedule-countdown";
+import { Button } from "@/components/ui/button";
 import { useWatchlist } from "@/hooks/use-watchlist";
 import { getScheduleTrackerId } from "@/lib/schedule/format";
 import type { ScheduledEpisode } from "@/types/schedule";
-
 export function ScheduleCard({ episode }: { episode: ScheduledEpisode }) {
   const watchlist = useWatchlist();
   const trackerId = getScheduleTrackerId(episode);
   const saved = watchlist.has(trackerId);
-
+  const href = `/show/${episode.showId}/${episode.slug}`;
   return (
-    <article className="group relative overflow-hidden rounded-xl border border-white/10 bg-[#0d1120]/85 shadow-[0_16px_45px_rgba(0,0,0,0.28)] transition hover:-translate-y-0.5 hover:border-violet-300/35">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(124,58,237,0.17),transparent_45%)] opacity-0 transition group-hover:opacity-100" />
-      <div className="relative grid grid-cols-[86px_1fr] gap-3 p-3">
-        <Link href={`/show/${episode.showId}/${episode.slug}`} className="relative aspect-[2/3] overflow-hidden rounded-lg bg-zinc-900" aria-label={`Open ${episode.title} countdown`}>
-          <Image src={episode.poster} alt={`${episode.title} poster`} fill sizes="86px" className="object-cover transition duration-300 group-hover:scale-105" />
+    <article className="group rounded-2xl border border-border bg-surface p-4 transition-colors hover:bg-surface-raised">
+      <div className="grid grid-cols-[72px_minmax(0,1fr)] gap-4">
+        <Link
+          href={href}
+          className="relative aspect-[2/3] self-start overflow-hidden rounded-xl bg-background"
+          aria-label={`Open ${episode.title} countdown`}
+        >
+          <Image
+            src={episode.poster}
+            alt={`${episode.title} poster`}
+            fill
+            sizes="72px"
+            className="object-cover"
+          />
         </Link>
         <div className="min-w-0">
           <div className="flex items-start gap-2">
-            <Link href={`/show/${episode.showId}/${episode.slug}`} className="min-w-0 flex-1">
-              <h3 className="line-clamp-2 text-sm font-black leading-5 text-white">{episode.title}</h3>
-              <p className="mt-1 text-xs font-semibold text-violet-300">
+            <div className="min-w-0 flex-1">
+              <h3 className="text-sm font-semibold leading-5">
+                <Link href={href} className="hover:underline">
+                  {episode.title}
+                </Link>
+              </h3>
+              <p className="mt-1.5 text-xs leading-5 text-muted">
                 S{episode.seasonNumber} E{episode.episodeNumber}
-                {episode.kind === "series-premiere" ? " · Series premiere" : episode.kind === "season-premiere" ? " · Season premiere" : ""}
+                {episode.kind === "series-premiere"
+                  ? " · Series premiere"
+                  : episode.kind === "season-premiere"
+                    ? " · Season premiere"
+                    : ""}
               </p>
-            </Link>
-            <button
-              type="button"
-              onClick={() => watchlist.toggle(trackerId)}
-              className="grid h-8 w-8 shrink-0 place-items-center rounded-md border border-white/10 bg-white/5 text-zinc-300 transition hover:bg-white/10 hover:text-white"
-              aria-label={saved ? `Remove ${episode.title} from My Countdowns` : `Add ${episode.title} to My Countdowns`}
-            >
-              <Bookmark size={14} fill={saved ? "currentColor" : "none"} />
-            </button>
-          </div>
-          <p className="mt-2 line-clamp-1 text-[11px] text-zinc-500"><Airtime airsAt={episode.airsAt} /></p>
-          <div className="mt-3">
-            <ScheduleCountdown airsAt={episode.airsAt} />
-          </div>
-          {episode.rank ? (
-            <div className="mt-2 flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-amber-300/80">
-              <Flame size={11} /> Rank #{episode.rank}
             </div>
-          ) : null}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="-mr-1 -mt-1"
+              onClick={() => watchlist.toggle(trackerId)}
+              aria-label={
+                saved
+                  ? `Remove ${episode.title} from My Countdowns`
+                  : `Add ${episode.title} to My Countdowns`
+              }
+              aria-pressed={saved}
+            >
+              {saved ? (
+                <Check size={17} aria-hidden="true" />
+              ) : (
+                <Bookmark size={17} aria-hidden="true" />
+              )}
+            </Button>
+          </div>
+          <p className="mt-2 text-xs leading-5 text-muted">
+            <Airtime airsAt={episode.airsAt} />
+          </p>
         </div>
       </div>
+      <div className="mt-4 border-t border-border pt-4">
+        <ScheduleCountdown airsAt={episode.airsAt} />
+      </div>
+      {episode.rank ? (
+        <p className="mt-3 inline-flex items-center gap-1.5 text-[11px] font-medium text-muted">
+          <Flame size={12} aria-hidden="true" />
+          Trending #{episode.rank}
+        </p>
+      ) : null}
     </article>
   );
 }
