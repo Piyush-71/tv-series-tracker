@@ -23,7 +23,7 @@ export function parseBrowseQuery(params: URLSearchParams, fallbackTimeZone = "UT
   const result = defaultBrowseQuery(mode, normalizeTimeZone(params.get("tz") || fallbackTimeZone));
   result.premiere = mode === "movie" ? "new" : enumValue<PremiereFilter>(params.get("premiere"), ["new", "returning", "airing"], "new", "premiere type");
   result.range = result.premiere === "airing" ? "all" : enumValue<DateRange>(params.get("range"), ["7", "30", "90", "upcoming", "custom", "all"], "30", "date range");
-  result.sort = enumValue<BrowseSort>(params.get("sort"), ["newest", "oldest", "next_episode", "rating", "popularity", "title"], "newest", "sort order");
+  result.sort = enumValue<BrowseSort>(params.get("sort"), ["newest", "oldest", "next_episode", "rating", "popularity", "title"], result.range === "upcoming" ? "oldest" : "newest", "sort order");
   if (mode === "movie" && result.sort === "next_episode") result.sort = "newest";
   result.query = params.get("q")?.trim() || "";
   if (result.query.length > 100) throw new BrowseInputError("Search must be 100 characters or fewer.");

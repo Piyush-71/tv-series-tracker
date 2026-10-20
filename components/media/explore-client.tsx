@@ -54,10 +54,16 @@ const ranges: Array<{ value: DateRange; label: string }> = [
 
 function sortOptions(
   movie: boolean,
+  upcoming = false,
 ): Array<{ value: BrowseSort; label: string }> {
   return [
     { value: "newest", label: movie ? "Newest release" : "Newest premiere" },
-    { value: "oldest", label: movie ? "Oldest release" : "Oldest premiere" },
+    {
+      value: "oldest",
+      label: upcoming
+        ? movie ? "Soonest release" : "Soonest premiere"
+        : movie ? "Oldest release" : "Oldest premiere",
+    },
     ...(!movie
       ? [{ value: "next_episode" as const, label: "Next episode soonest" }]
       : []),
@@ -210,6 +216,10 @@ function ExploreSession({
   function changeMode(mode: BrowseMode) {
     setDraft((current) => ({
       ...defaultBrowseQuery(mode, applied.timeZone),
+      premiere: mode === "movie" ? "new" : current.premiere,
+      range: current.range,
+      from: current.from,
+      to: current.to,
       countries: current.countries,
       languages: current.languages,
       genres: current.genres,
@@ -236,12 +246,12 @@ function ExploreSession({
       options={options}
       premieres={premieres}
       ranges={ranges}
-      sorts={sortOptions(movie)}
+      sorts={sortOptions(movie, draft.range === "upcoming")}
       onChange={updateDraft}
     />
   );
   const filterHint = hideDates
-    ? "Started seasons with a confirmed future episode, including midseason breaks. Seasons with unknown completion status are excluded."
+    ? "Started seasons with a confirmed episode today or in the future, including midseason breaks. Seasons with unknown completion status are excluded."
     : `Dates use ${applied.timeZone}. ${movie ? "Original movie release dates." : "Dates refer to the matching season’s premiere."}`;
   const chips: Array<{ label: string; remove: () => void }> = [
     ...applied.languages.map((language) => ({
@@ -322,7 +332,7 @@ function ExploreSession({
                 key={mode.value}
                 aria-pressed={draft.mode === mode.value}
                 onClick={() => changeMode(mode.value)}
-                className={`min-h-11 flex-1 rounded-lg px-3 text-sm font-semibold transition-colors md:flex-none md:px-5 ${draft.mode === mode.value ? "bg-surface-raised text-accent" : "text-muted hover:bg-surface hover:text-foreground"}`}
+                className={`min-h-11 flex-1 rounded-lg px-3 text-sm font-semibold transition-colors md:flex-none md:px-5 ${draft.mode === mode.value ? "bg-accent text-on-accent" : "text-muted hover:bg-surface hover:text-foreground"}`}
               >
                 {mode.label}
               </button>
@@ -377,7 +387,7 @@ function ExploreSession({
               filters combine.
             </p>
             {pending && (
-              <p className="mt-1 text-xs text-accent">Changes ready to apply</p>
+              <p className="mt-1 text-xs font-medium text-foreground">Changes ready to apply</p>
             )}
           </div>
           <Button
@@ -463,7 +473,7 @@ function ExploreSession({
           {loading
             ? "Loading results…"
             : result
-              ? `${result.totalResults} ${result.totalResults === 1 ? "match" : "matches"} · ${sortOptions(applied.mode === "movie").find((sort) => sort.value === applied.sort)?.label}`
+              ? `${result.totalResults} ${result.totalResults === 1 ? "match" : "matches"} · ${sortOptions(applied.mode === "movie", applied.range === "upcoming").find((sort) => sort.value === applied.sort)?.label}`
               : ""}
         </span>
       </div>
@@ -521,10 +531,9 @@ function ExploreSession({
             {result.coverage.configured ? (
               <>
                 <strong className="text-foreground">Verified coverage:</strong>{" "}
-                {result.coverage.verifiedTitles} titles in this mode, from a
-                limited selection of recent, upcoming, popular, and calendar
-                titles. This is not the full catalog; custom dates and search
-                cover this selection.{" "}
+                {result.coverage.verifiedTitles} titles checked for these filters.{" "}
+                {result.coverage.limited && "A discovery limit was reached; these results and their sort order cover only the fetched selection. Narrow the dates, country, language, genre, or title search to find more specific matches. "}
+                {!!result.coverage.unavailablePages && `${result.coverage.unavailablePages} discovery ${result.coverage.unavailablePages === 1 ? "page" : "pages"} could not be loaded; results may be incomplete. `}
                 {result.coverage.unavailableTitles > 0 &&
                   `${result.coverage.unavailableTitles} titles could not be verified. `}
                 Unknown season status is excluded from Currently Airing.
@@ -540,6 +549,7 @@ function ExploreSession({
                   key={item.title.id}
                   result={item}
                   premiere={applied.premiere}
+                  timeZone={applied.timeZone}
                 />
               ))}
             </div>

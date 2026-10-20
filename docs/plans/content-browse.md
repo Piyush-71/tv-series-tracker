@@ -13,13 +13,13 @@ Status: approved and implemented in the existing Explore page.
 - Hide the date-range control for Currently Airing so older ongoing seasons remain eligible.
 - New Series and Returning Seasons use the season premiere date, with a default recent window of 30 days.
 - Air-date choices include last 7, 30, and 90 days, upcoming, and custom dates.
-- Sort orders: newest premiere, oldest premiere, next episode airing soonest, highest rating, popularity, and title A–Z. Default: newest premiere first. Movies omit next-episode sorting and use release-date labels.
-- Original language and followed-title filters are outside the selected initial filter set.
+- Sort orders: newest premiere, oldest premiere, next episode airing soonest, highest rating, popularity, and title A–Z. Default: newest premiere first for past dates, soonest first for Upcoming. Movies omit next-episode sorting and use release-date labels.
+- Original language supports multiple selections, with OR within languages and AND with the other filters. Followed-title filtering remains outside this page.
 - Country and genre allow multiple selections: OR within one filter, AND between filters.
 - New Series, Returning Seasons, and Currently Airing form a single-choice control.
 - Apply filter changes with an Apply button.
 - Store applied filters in the URL for refresh, Back navigation, and shared links.
-- Show one card per show, displaying the most recent matching season.
+- Show one card per show, displaying the most recent matching season for past/custom ranges and the nearest announced season for Upcoming.
 - Anime means Japanese animated series for this version. Series excludes those; non-Japanese animated series remain in Series, and animated films remain in Movies.
 - Movie dates refer to original release dates, not streaming availability.
 - Minimum rating uses the overall TMDB title rating out of 10, including for returning seasons. Clearly label the source and scale; exclude unrated titles when a minimum is selected.
@@ -27,7 +27,7 @@ Status: approved and implemented in the existing Explore page.
 - Default view: Series, New Series, last 30 days, newest premiere first. Movies also default to last 30 days. Country, genre, and rating are unrestricted initially. Reset restores the selected mode's defaults.
 - Upcoming includes known premiere/release dates beginning tomorrow. Past presets end today. Custom dates include both selected days. Use the viewer's chosen timezone for calendar-day boundaries.
 - Currently Airing sorts premieres by the active season's premiere date. Missing next episodes, ratings, or popularity values sort last in their corresponding sort orders.
-- Series/Anime/Movie tabs reset mode-specific selections when switching modes.
+- Series/Anime/Movie tabs preserve dates and shared filters. Movie mode clears the season-status selection and substitutes a supported sort for next-episode sorting.
 - Include title search, removable applied-filter chips, collapsible mobile filters, and a Load more control.
 - Empty results show No matches and a Clear filters action.
 - Apply filtering and sorting across the available result set before pagination. Loading more must preserve the chosen order.
@@ -50,13 +50,16 @@ Explore already provides catalog filters. Schedule listings have no filter contr
 Explore uses a separate browse inventory and API; the existing catalog API remains available to the other pages.
 
 - TMDB title details provide countries, genres, original movie release dates, title ratings, popularity, season premiere dates, and the next scheduled episode.
-- The inventory uses two pages of recent premieres/releases from the last 90 days, one page of future premieres/releases, and one page of popular titles. TV additionally includes one page of series with future episodes, one page of Japanese animated series, and up to 80 calendar show IDs. These are candidate sources; only successfully fetched TMDB details become browse records.
-- Inventories and options revalidate hourly. Metadata fetches have bounded concurrency, and simultaneous requests share the inventory load.
-- Currently Airing requires a started season and a TMDB next episode in that same season dated after the viewer's current calendar day. This includes breaks with a known future episode; hiatuses without confirmed future episodes remain unknown and are excluded.
+- Discovery follows the applied dates, country, genre, original language, minimum rating, and supported sort. New series use first-air dates; returning seasons use episode air dates to find candidates before verifying season premieres. Anime discovery targets Japanese animation. Title searches use TMDB catalog search, retaining original/translated/alternative-name matches instead of filtering an English display title again. Search-only constraints that TMDB cannot accept are verified locally.
+- Discovery follows pagination with a maximum of 10 pages per language and a shared budget of 20 pages (at least one per selected language, up to 30). Each page has up to 20 candidate titles. Broad queries can still exceed this bounded selection. The page explicitly reports a discovery limit or failed discovery pages and offers narrower filters; totals and ordering cover the fetched, verified selection. Only successfully fetched details become browse records.
+- Inventories and options revalidate hourly. Inventory cache and in-flight keys include the applied query and the viewer’s current calendar day. Discovery plans run with concurrency 4 and detail requests with concurrency 8.
+- Currently Airing requires a started season and a TMDB next episode in that same season dated on or after the viewer's current calendar day. This includes breaks with a known future episode; hiatuses without confirmed future episodes remain unknown and are excluded.
 - Missing dates and ratings remain unknown. An active minimum rating excludes unrated titles. Browse never substitutes the app's sample catalog for verified results.
-- Search, country, genre, dates, and rating filters run over the same inventory before sorting, season selection, title deduplication, totals, and pagination. Cards show the latest season that matches the selected dates.
-- Load more extends the sorted result prefix while keeping existing cards visible. Snapshot checks reject continuation if the inventory or local calendar day changed, prompting a refresh rather than silently changing the result order.
-- The UI states that search and custom dates cover a limited selection rather than the full catalog.
+- Country, language, genre, dates, and rating are verified before sorting, season selection, title deduplication, totals, and pagination. A confirmed next episode numbered 1 can supply a missing season-premiere date. Cards show Premieres/Releases for today or future dates, and Premiered/Released for past dates in the chosen timezone.
+- Load more extends the sorted result prefix while keeping existing cards visible. Snapshot checks reject continuation if the inventory, applied query, or local calendar day changed, prompting a refresh rather than silently changing the result order.
+- Search and custom dates fetch their own candidates rather than reusing unrelated popular/recent titles.
+
+Audit findings and regression evidence: [Explore filter audit](../explore-filter-audit.md).
 
 Source references: [TMDB series details](https://developer.themoviedb.org/reference/tv-series-details), [TMDB discovery](https://developer.themoviedb.org/reference/discover-tv), and [TMDB movie details](https://developer.themoviedb.org/reference/movie-details).
 

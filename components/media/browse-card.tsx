@@ -6,6 +6,7 @@ import { Bookmark, Star } from "lucide-react";
 import { useWatchlist } from "@/hooks/use-watchlist";
 import { Button } from "@/components/ui/button";
 import type { BrowseResult, PremiereFilter } from "@/lib/browse/types";
+import { calendarDay } from "@/lib/browse/filter";
 
 const regionNames = new Intl.DisplayNames(["en"], { type: "region" });
 
@@ -21,13 +22,19 @@ function displayDate(date: string) {
 export function BrowseCard({
   result,
   premiere,
+  timeZone = "UTC",
 }: {
   result: BrowseResult;
   premiere: PremiereFilter;
+  timeZone?: string;
 }) {
   const watchlist = useWatchlist();
   const { title } = result;
   const saved = watchlist.has(title.id);
+  const upcoming = result.date >= calendarDay(new Date(), timeZone);
+  const dateLabel = result.season === null
+    ? upcoming ? "Releases" : "Released"
+    : upcoming ? "Premieres" : "Premiered";
   const label =
     result.season === null
       ? "Movie"
@@ -62,7 +69,7 @@ export function BrowseCard({
           </Link>
         </h3>
         <p className="text-xs text-muted">
-          {result.season === null ? "Released" : "Premiered"}{" "}
+          {dateLabel}{" "}
           {displayDate(result.date)}
         </p>
         <p className="line-clamp-1 text-xs text-muted">

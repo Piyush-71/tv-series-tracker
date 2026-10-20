@@ -48,6 +48,8 @@ export type BrowseInventory = {
   updatedAt: string;
   candidateCount: number;
   failedCount: number;
+  limited: boolean;
+  failedPages: number;
 };
 
 export type BrowsePage = {
@@ -62,6 +64,8 @@ export type BrowsePage = {
     unavailableTitles: number;
     updatedAt: string | null;
     configured: boolean;
+    limited?: boolean;
+    unavailablePages?: number;
   };
   snapshot: string;
 };

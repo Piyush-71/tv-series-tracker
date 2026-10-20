@@ -85,6 +85,25 @@ async function ready() {
 }
 
 describe("Explore filter application", () => {
+  it("selects soonest first for Upcoming and preserves All dates when changing season status", async () => {
+    const user = userEvent.setup();
+    render(<ExploreClient options={options} />);
+    await ready();
+    await user.selectOptions(screen.getByRole("combobox", { name: "Premiere-date range" }), "upcoming");
+    expect((screen.getByRole("combobox", { name: "Sort results" }) as HTMLSelectElement).value).toBe("oldest");
+    expect(screen.getByRole("option", { name: "Soonest premiere" })).toBeDefined();
+    await user.selectOptions(screen.getByRole("combobox", { name: "Premiere-date range" }), "all");
+    await user.selectOptions(screen.getByRole("combobox", { name: "Season status" }), "returning");
+    expect((screen.getByRole("combobox", { name: "Premiere-date range" }) as HTMLSelectElement).value).toBe("all");
+  });
+  it("preserves upcoming dates when switching from Series to Movies", async () => {
+    window.history.replaceState(null, "", "/explore?range=upcoming&sort=oldest");
+    const user = userEvent.setup();
+    render(<ExploreClient options={options} />);
+    await ready();
+    await user.click(screen.getByRole("button", { name: "Movies" }));
+    expect((screen.getByRole("combobox", { name: "Release-date range" }) as HTMLSelectElement).value).toBe("upcoming");
+  });
   it("restores languages from the URL, preserves them when switching modes, and removes a language chip", async () => {
     window.history.replaceState(null, "", "/explore?language=ko&language=en");
     const user = userEvent.setup();

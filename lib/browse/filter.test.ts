@@ -11,6 +11,18 @@ function record(overrides: Partial<TmdbDetails> = {}): BrowseRecord { return toB
 function query(overrides: Partial<BrowseQuery> = {}): BrowseQuery { return { ...defaultBrowseQuery(), premiere: "returning", ...overrides }; }
 
 describe("browse season selection", () => {
+  it("selects the nearest upcoming returning season rather than a later announced season", () => {
+    const future = record({ seasons: [{ season_number: 2, air_date: "2026-11-01" }, { season_number: 3, air_date: "2027-11-01" }] });
+    expect(filterBrowseRecords([future], query({ range: "upcoming" }), now)).toMatchObject([{ season: 2, date: "2026-11-01" }]);
+  });
+  it("keeps date-only episodes scheduled today in Currently Airing", () => {
+    const airingToday = record({ next_episode_to_air: { id: 1, name: "Today", season_number: 3, episode_number: 2, air_date: "2026-10-03" } });
+    expect(filterBrowseRecords([airingToday], query({ premiere: "airing" }), now)).toMatchObject([{ nextEpisodeDate: "2026-10-03" }]);
+  });
+  it("recognizes an announced season premiere from its first scheduled episode", () => {
+    const premiere = record({ seasons: [], next_episode_to_air: { id: 1, name: "Premiere", season_number: 2, episode_number: 1, air_date: "2026-11-01" } });
+    expect(filterBrowseRecords([premiere], query({ range: "upcoming" }), now)).toMatchObject([{ season: 2, date: "2026-11-01" }]);
+  });
   it.each(["tv", "movie"] as const)("filters %s by original language and combines it with country and genre", (mode) => {
     const records = [
       { id: 1, original_language: "hi" },

@@ -12,12 +12,17 @@ function shiftDay(day: string, amount: number) {
   return new Date(Date.parse(day) + amount * 86_400_000).toISOString().slice(0, 10);
 }
 
+export function browseDateBounds(query: BrowseQuery, today: string) {
+  if (query.range === "all" || query.premiere === "airing" && query.mode !== "movie") return { from: "", to: "" };
+  if (query.range === "upcoming") return { from: shiftDay(today, 1), to: "" };
+  if (query.range === "custom") return { from: query.from, to: query.to };
+  return { from: shiftDay(today, 1 - Number(query.range)), to: today };
+}
+
 function dateMatches(date: string, query: BrowseQuery, today: string) {
   if (!isCalendarDate(date)) return false;
-  if (query.range === "all" || query.premiere === "airing" && query.mode !== "movie") return true;
-  if (query.range === "upcoming") return date > today;
-  if (query.range === "custom") return date >= query.from && date <= query.to;
-  return date >= shiftDay(today, 1 - Number(query.range)) && date <= today;
+  const { from, to } = browseDateBounds(query, today);
+  return (!from || date >= from) && (!to || date <= to);
 }
 
 function optionalCompare(a: number | null, b: number | null, descending = false): number {
@@ -50,15 +55,17 @@ export function filterBrowseRecords(records: BrowseRecord[], query: BrowseQuery,
         const premiere = calendarDay(item.premiereDate, query.timeZone);
         if (item.number < 1 || !premiere) return false;
         if (query.premiere === "airing") {
-          return premiere <= today && record.nextEpisode?.season === item.number && nextDate > today;
+          return premiere <= today && record.nextEpisode?.season === item.number && nextDate >= today;
         }
         return (query.premiere === "new" ? item.number === 1 : item.number > 1) && dateMatches(premiere, query, today);
-      }).sort((a, b) => b.premiereDate.localeCompare(a.premiereDate) || b.number - a.number);
+      }).sort((a, b) => query.range === "upcoming"
+        ? a.premiereDate.localeCompare(b.premiereDate) || a.number - b.number
+        : b.premiereDate.localeCompare(a.premiereDate) || b.number - a.number);
       if (!matches.length) continue;
       season = matches[0].number;
       date = calendarDay(matches[0].premiereDate, query.timeZone);
     }
-    results.push({ title, date, season, nextEpisodeDate: nextDate > today ? nextDate : null, rating: record.rating, popularity: record.popularity });
+    results.push({ title, date, season, nextEpisodeDate: nextDate >= today ? nextDate : null, rating: record.rating, popularity: record.popularity });
   }
   const unique = [...new Map(results.map((result) => [result.title.id, result])).values()];
   return unique.sort((a, b) => {

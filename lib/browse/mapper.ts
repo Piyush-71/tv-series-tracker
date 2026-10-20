@@ -15,5 +15,8 @@ export function toBrowseRecord(details: TmdbDetails, genres: Map<number, string>
   if (mediaType === "tv" && releaseDate && !seasons.some((season) => season.number === 1)) seasons.push({ number: 1, premiereDate: releaseDate });
   const next = details.next_episode_to_air;
   const nextEpisode = next && next.season_number > 0 && next.air_date && isCalendarDate(next.air_date) ? { season: next.season_number, date: next.air_date } : null;
+  if (mediaType === "tv" && nextEpisode && next?.episode_number === 1 && !seasons.some((season) => season.number === nextEpisode.season)) {
+    seasons.push({ number: nextEpisode.season, premiereDate: nextEpisode.date });
+  }
   return { title, releaseDate, seasons, nextEpisode, rating, popularity };
 }

@@ -67,7 +67,7 @@ export function ExploreFilterFields({
               range:
                 premiere === "airing"
                   ? "all"
-                  : draft.range === "all"
+                  : draft.premiere === "airing"
                     ? "30"
                     : draft.range,
             })
@@ -107,7 +107,10 @@ export function ExploreFilterFields({
           accessibleLabel={movie ? "Release-date range" : "Premiere-date range"}
           value={draft.range}
           options={ranges}
-          onChange={(range) => onChange({ range })}
+          onChange={(range) => onChange({
+            range,
+            ...(range === "upcoming" && draft.sort === "newest" ? { sort: "oldest" } : {}),
+          })}
         />
       )}
       <label className={labelClass}>
@@ -257,7 +260,7 @@ function MultiSelect({
         className={cn(
           controlClass,
           "flex items-center justify-between gap-2 text-left font-normal transition-colors hover:bg-surface-raised",
-          selected.length > 0 && "text-accent",
+          selected.length > 0 && "border-foreground font-semibold",
         )}
       >
         <span className="truncate">
