@@ -10,6 +10,7 @@ import {
 } from "vitest";
 import {
   cleanup,
+  act,
   render,
   screen,
   waitFor,
@@ -18,6 +19,7 @@ import {
 import userEvent from "@testing-library/user-event";
 import { ExploreClient } from "@/components/media/explore-client";
 import type { BrowsePage, BrowseResult } from "@/lib/browse/types";
+import { mediaTitles } from "@/data/media";
 
 vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(window.location.search),
@@ -85,6 +87,46 @@ async function ready() {
 }
 
 describe("Explore filter application", () => {
+  it("renders matches and enables filters while card details are still loading", async () => {
+    const summary = { ...page, detailsPending: true, totalResults: 1, results: [{ title: mediaTitles[0], date: "2026-10-01", season: 1, rating: null, popularity: null, nextEpisodeDate: null, detailsPending: true }] };
+    let finishDetails!: (response: Response) => void;
+    const details = new Promise<Response>((resolve) => { finishDetails = resolve; });
+    fetchMock.mockReset().mockResolvedValueOnce(new Response(JSON.stringify(summary))).mockReturnValueOnce(details);
+    render(<ExploreClient options={options} />);
+    await screen.findByText(mediaTitles[0].title);
+    expect((screen.getByRole("button", { name: "Apply filters" }) as HTMLButtonElement).disabled).toBe(false);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(new URL(String(fetchMock.mock.calls[1][0]), "http://localhost").searchParams.get("details")).toBe("1");
+    expect(new URL(String(fetchMock.mock.calls[1][0]), "http://localhost").searchParams.get("snapshot")).toBe(page.snapshot);
+    finishDetails(new Response(JSON.stringify({ ...summary, detailsPending: false, results: [{ ...summary.results[0], title: { ...mediaTitles[0], title: "Enriched title" } }] })));
+    await screen.findByText("Enriched title");
+  });
+  it("retains matches if optional background card details fail", async () => {
+    const summary = { ...page, detailsPending: true, totalResults: 1, results: [{ title: mediaTitles[0], date: "2026-10-01", season: 1, rating: null, popularity: null, nextEpisodeDate: null, detailsPending: true }] };
+    fetchMock.mockReset().mockResolvedValueOnce(new Response(JSON.stringify(summary))).mockRejectedValueOnce(new Error("Unavailable details"));
+    render(<ExploreClient options={options} />);
+    await screen.findByText(mediaTitles[0].title);
+    await screen.findByText(/1 title has unavailable details/);
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+  it("cancels stale card details when the applied filters change", async () => {
+    const summary = { ...page, detailsPending: true, totalResults: 1, results: [{ title: mediaTitles[0], date: "2026-10-01", season: 1, rating: null, popularity: null, nextEpisodeDate: null, detailsPending: true }] };
+    let finishDetails!: (response: Response) => void;
+    const details = new Promise<Response>((resolve) => { finishDetails = resolve; });
+    fetchMock.mockReset()
+      .mockResolvedValueOnce(new Response(JSON.stringify(summary)))
+      .mockReturnValueOnce(details)
+      .mockResolvedValueOnce(new Response(JSON.stringify({ ...summary, detailsPending: false, results: [{ ...summary.results[0], title: { ...mediaTitles[0], title: "New filter result" } }] })));
+    const view = render(<ExploreClient options={options} />);
+    await screen.findByText(mediaTitles[0].title);
+    window.history.replaceState(null, "", "/explore?q=changed");
+    view.rerender(<ExploreClient options={options} />);
+    await screen.findByText("New filter result");
+    expect(fetchMock.mock.calls[1][1].signal.aborted).toBe(true);
+    await act(async () => finishDetails(new Response(JSON.stringify({ ...summary, results: [{ ...summary.results[0], title: { ...mediaTitles[0], title: "Stale details" } }] }))));
+    expect(screen.queryByText("Stale details")).toBeNull();
+    expect(screen.getByText("New filter result")).toBeDefined();
+  });
   it("selects soonest first for Upcoming and preserves All dates when changing season status", async () => {
     const user = userEvent.setup();
     render(<ExploreClient options={options} />);

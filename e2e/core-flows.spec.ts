@@ -32,6 +32,28 @@ test("discovery applies filters and displays verified cards", async ({ page }) =
   await expect(page.locator("article").first()).toContainText("Echoes of Orion");
 });
 
+test("Explore displays matches before optional card details finish", async ({ page }) => {
+  let releaseDetails!: () => void;
+  const detailsReady = new Promise<void>((resolve) => { releaseDetails = resolve; });
+  await page.route("**/api/browse?**", async (route) => {
+    const details = new URL(route.request().url()).searchParams.get("details") === "1";
+    if (details) await detailsReady;
+    await route.fulfill({ json: {
+      detailsPending: !details,
+      results: [{ title: { ...mediaTitles[0], originCountries: details ? ["IN"] : [] }, date: "2099-01-01", season: 1, nextEpisodeDate: null, rating: 8, popularity: 99, detailsPending: !details }],
+      totalResults: 1, totalPages: 1, page: 1, hasMore: false, snapshot: "0123456789abcdef",
+      coverage: { configured: true, verifiedTitles: 1, candidateTitles: 1, unavailableTitles: 0, updatedAt: "2026-10-21" },
+    } });
+  });
+  await page.goto("/explore?range=upcoming");
+  await expect(page.locator("article")).toContainText("Echoes of Orion");
+  await expect(page.locator("article")).toContainText("Loading origin…");
+  await expect(page.getByRole("button", { name: "Apply filters", exact: true })).toBeEnabled();
+  releaseDetails();
+  await expect(page.locator("article")).toContainText("India");
+  await expect(page.locator("article")).not.toContainText("Loading origin…");
+});
+
 test("upcoming dates survive content switches, reloads, and Back navigation", async ({ page }) => {
   await page.route("**/api/browse?**", (route) => {
     const movie = new URL(route.request().url()).searchParams.get("type") === "movie";

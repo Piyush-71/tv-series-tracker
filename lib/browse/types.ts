@@ -34,6 +34,7 @@ export type BrowseRecord = {
 };
 
 export type BrowseResult = {
+  detailsPending?: boolean;
   title: MediaTitle;
   date: string;
   season: number | null;
@@ -44,6 +45,7 @@ export type BrowseResult = {
 
 export type BrowseInventory = {
   records: BrowseRecord[];
+  summaryIds: string[];
   snapshot: string;
   updatedAt: string;
   candidateCount: number;
@@ -53,6 +55,7 @@ export type BrowseInventory = {
 };
 
 export type BrowsePage = {
+  detailsPending?: boolean;
   results: BrowseResult[];
   totalResults: number;
   totalPages: number;

@@ -78,7 +78,7 @@ export function BrowseCard({
         <p className="line-clamp-1 text-xs text-muted">
           {title.originCountries
             ?.map((country) => regionNames.of(country) || country)
-            .join(" · ") || "Origin unknown"}
+            .join(" · ") || (result.detailsPending ? "Loading origin…" : "Origin unknown")}
         </p>
         {result.nextEpisodeDate && (
           <p className="text-xs text-foreground">

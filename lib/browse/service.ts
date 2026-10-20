@@ -42,21 +42,68 @@ const defaultOptions: BrowseOptions = {
   genres: ["Action", "Action & Adventure", "Animation", "Comedy", "Crime", "Documentary", "Drama", "Family", "Fantasy", "Horror", "Mystery", "Romance", "Sci-Fi & Fantasy", "Science Fiction", "Thriller"],
 };
 
-const cachedOptions = unstable_cache(async (): Promise<BrowseOptions> => {
-  const [genres, countries, languages] = await Promise.all([
-    cachedGenreLists(),
+const cachedConfiguration = unstable_cache(async () => {
+  const [countries, languages] = await Promise.all([
     tmdbFetch<Array<{ iso_3166_1: string; english_name: string }>>("/configuration/countries", { revalidate: REVALIDATE }),
     tmdbFetch<Array<{ iso_639_1: string; english_name: string }>>("/configuration/languages", { revalidate: REVALIDATE }),
   ]);
-  return { genres: [...new Set(genres.map((genre) => genre.name))].sort(), countries: countries.map((country) => ({ code: country.iso_3166_1, label: country.english_name })).sort((a, b) => a.label.localeCompare(b.label)), languages: languages.map((language) => ({ code: language.iso_639_1, label: language.english_name || language.iso_639_1 })).sort((a, b) => a.label.localeCompare(b.label)) };
-}, ["browse-options-v2"], { revalidate: REVALIDATE });
+  return {
+    countries: countries.map((country) => ({ code: country.iso_3166_1, label: country.english_name })).sort((a, b) => a.label.localeCompare(b.label)),
+    languages: languages.map((language) => ({ code: language.iso_639_1, label: language.english_name || language.iso_639_1 })).sort((a, b) => a.label.localeCompare(b.label)),
+  };
+}, ["browse-configuration-v1"], { revalidate: REVALIDATE });
+
+async function cachedOptions(): Promise<BrowseOptions> {
+  const [genres, configuration] = await Promise.all([cachedGenreLists(), cachedConfiguration()]);
+  return { genres: [...new Set(genres.map((genre) => genre.name))].sort(), ...configuration };
+}
 
 export async function getBrowseOptions(): Promise<BrowseOptions> {
   if (!hasTmdbCredentials()) return defaultOptions;
   try { return await cachedOptions(); } catch { return defaultOptions; }
 }
 
+async function mapConcurrent<T, R>(items: T[], concurrency: number, visit: (item: T) => Promise<R>): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let cursor = 0;
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, async () => {
+    while (cursor < items.length) {
+      const index = cursor++;
+      results[index] = await visit(items[index]);
+    }
+  }));
+  return results;
+}
+
+// Cache compact details independently of the active filters, including DNS-fallback responses.
+const cachedTitleRecord = unstable_cache(async (type: TmdbMediaType, id: number) => {
+  const details = await tmdbFetch<TmdbDetails>(`/${type}/${id}`, { params: { language: "en-US" }, revalidate: REVALIDATE });
+  return toBrowseRecord(details, new Map(), type);
+}, ["browse-title-record-v1"], { revalidate: REVALIDATE, tags: ["browse-inventory"] });
+const titleRequests = new Map<string, Promise<BrowseInventory["records"][number]>>();
+
+function getTitleRecord(type: TmdbMediaType, id: number) {
+  const key = `${type}:${id}`;
+  const pending = titleRequests.get(key);
+  if (pending) return pending;
+  const request = cachedTitleRecord(type, id).finally(() => titleRequests.delete(key));
+  titleRequests.set(key, request);
+  return request;
+}
+
+function hasPremiereSummary(item: TmdbListItem, type: TmdbMediaType) {
+  return typeof (type === "movie" ? item.title : item.name) === "string"
+    && typeof (type === "movie" ? item.release_date : item.first_air_date) === "string"
+    && Array.isArray(item.genre_ids)
+    && (type === "movie" || Array.isArray(item.origin_country));
+}
+
 type DiscoveryPlan = { path: string; params: Record<string, string | number | boolean> };
+
+const cachedSourcePage = unstable_cache(async (path: string, paramsKey: string) => {
+  const params: DiscoveryPlan["params"] = JSON.parse(paramsKey);
+  return tmdbFetch<TmdbListResponse<TmdbListItem>>(path, { params, revalidate: REVALIDATE });
+}, ["browse-source-page-v1"], { revalidate: REVALIDATE, tags: ["browse-inventory"] });
 
 function discoveryPlans(query: BrowseQuery, genres: TmdbGenre[], today: string): DiscoveryPlan[] {
   const type = query.mode === "movie" ? "movie" : "tv";
@@ -102,63 +149,68 @@ async function loadInventory(queryKey: string, today: string): Promise<BrowseInv
   const genres = await cachedGenreLists();
   const plans = discoveryPlans(query, genres, today);
   const pageLimit = Math.min(MAX_PAGES_PER_LANGUAGE, Math.max(1, Math.floor(DISCOVERY_PAGE_BUDGET / plans.length)));
-  const ids = new Set<number>();
   let limited = false;
   let failedPages = 0;
   let successfulPages = 0;
-  let planCursor = 0;
-  await Promise.all(Array.from({ length: Math.min(4, plans.length) }, async () => {
-    while (planCursor < plans.length) {
-      const plan = plans[planCursor++];
-      let totalPages = 1;
-      for (let page = 1; page <= Math.min(totalPages, pageLimit); page += 1) {
-        try {
-          const response = await tmdbFetch<TmdbListResponse<TmdbListItem>>(plan.path, { params: { ...plan.params, page }, revalidate: REVALIDATE });
-          successfulPages += 1;
-          totalPages = response.total_pages;
-          limited ||= totalPages > pageLimit;
-          response.results.forEach((item) => ids.add(item.id));
-        } catch {
-          failedPages += 1;
-        }
-      }
+  async function fetchPage(plan: DiscoveryPlan, page: number) {
+    try {
+      const response = await cachedSourcePage(plan.path, JSON.stringify({ ...plan.params, page }));
+      successfulPages += 1;
+      limited ||= response.total_pages > pageLimit;
+      return response;
+    } catch {
+      failedPages += 1;
+      return null;
     }
-  }));
+  }
+  // Learn the source page counts once, then fetch independent pages in parallel.
+  const firstPages = await mapConcurrent(plans, 4, (plan) => fetchPage(plan, 1));
+  const remaining = plans.flatMap((plan, index) => Array.from(
+    { length: Math.max(0, Math.min(firstPages[index]?.total_pages || 0, pageLimit) - 1) },
+    (_, page) => ({ plan, page: page + 2 }),
+  ));
+  const otherPages = await mapConcurrent(remaining, 4, ({ plan, page }) => fetchPage(plan, page));
   if (!successfulPages) throw new Error("Browse discovery sources unavailable");
+  const items = new Map<number, TmdbListItem>();
+  for (const response of [...firstPages, ...otherPages]) {
+    for (const item of response?.results || []) if (!items.has(item.id)) items.set(item.id, item);
+  }
   const genreMap = new Map(genres.map((genre) => [genre.id, genre.name]));
-  const candidates = [...ids].sort((a, b) => a - b);
-  const records: BrowseInventory["records"] = [];
+  const candidates = [...items.values()].sort((a, b) => a.id - b.id);
+  const summaryIds: string[] = [];
   let failedCount = 0;
-  let cursor = 0;
-  // Bound concurrency; cache only the compact metadata required for browsing.
-  await Promise.all(Array.from({ length: Math.min(8, candidates.length) }, async () => {
-    while (cursor < candidates.length) {
-      const id = candidates[cursor++];
-      try {
-        const details = await tmdbFetch<TmdbDetails>(`/${type}/${id}`, { params: { language: "en-US" }, revalidate: REVALIDATE });
-        records.push(toBrowseRecord(details, genreMap, type));
-      } catch { failedCount += 1; }
+  const needsSeasonDetails = type === "tv" && (query.premiere !== "new" || query.sort === "next_episode");
+  // Search cannot apply country constraints upstream. Movie discovery can.
+  const needsCountryDetails = !!query.query && query.countries.length > 0;
+  const loaded = await mapConcurrent(candidates, 8, async (item) => {
+    if (!needsSeasonDetails && !needsCountryDetails && hasPremiereSummary(item, type)) {
+      const record = toBrowseRecord(item, genreMap, type);
+      summaryIds.push(record.title.id);
+      return record;
     }
-  }));
+    try { return await getTitleRecord(type, item.id); }
+    catch { failedCount += 1; return null; }
+  });
+  const records = loaded.filter((record) => record !== null);
   if (!records.length && candidates.length) throw new Error("Browse title metadata unavailable");
   records.sort((a, b) => a.title.id.localeCompare(b.title.id));
   const snapshot = createHash("sha256").update(JSON.stringify(records)).digest("hex").slice(0, 16);
-  return { records, candidateCount: candidates.length, failedCount, limited, failedPages, snapshot, updatedAt: now.toISOString() };
+  return { records, summaryIds: summaryIds.sort(), candidateCount: candidates.length, failedCount, limited, failedPages, snapshot, updatedAt: now.toISOString() };
 }
 
-const cachedInventory = unstable_cache(loadInventory, ["browse-inventory-v3"], { revalidate: REVALIDATE, tags: ["browse-inventory"] });
+// Cache leaf requests only. Next.js bypasses existing entries for nested unstable_cache calls.
 const inFlight = new Map<string, Promise<BrowseInventory>>();
 
 function getInventory(queryKey: string, today: string) {
   const key = `${queryKey}:${today}`;
   const pending = inFlight.get(key);
   if (pending) return pending;
-  const request = cachedInventory(queryKey, today).finally(() => inFlight.delete(key));
+  const request = loadInventory(queryKey, today).finally(() => inFlight.delete(key));
   inFlight.set(key, request);
   return request;
 }
 
-export async function getBrowsePage(query: BrowseQuery, now = new Date()): Promise<BrowsePage> {
+export async function getBrowsePage(query: BrowseQuery, now = new Date(), includeCardDetails = true): Promise<BrowsePage> {
   if (!hasTmdbCredentials()) {
     return { results: [], totalResults: 0, totalPages: 0, page: query.page, hasMore: false, snapshot: "", coverage: { verifiedTitles: 0, candidateTitles: 0, unavailableTitles: 0, updatedAt: null, configured: false } };
   }
@@ -168,9 +220,35 @@ export async function getBrowsePage(query: BrowseQuery, now = new Date()): Promi
   // Relative date windows can change at local midnight even if the inventory did not.
   const snapshot = createHash("sha256").update(`${inventory.snapshot}:${today}:${queryKey}`).digest("hex").slice(0, 16);
   if (query.snapshot && query.snapshot !== snapshot) throw new BrowseSnapshotChanged("Browse data changed. Apply filters again to refresh the results.");
-  const matches = filterBrowseRecords(inventory.records, query.query ? { ...query, query: "" } : query, now);
+  const filterQuery = {
+    ...query,
+    query: "", // TMDB search already matched original/translated/alternative names.
+    // Movie list responses omit origin countries, but discovery applied this constraint.
+    countries: query.mode === "movie" && !query.query ? [] : query.countries,
+  };
+  const matches = filterBrowseRecords(inventory.records, filterQuery, now);
+  const summaryIds = new Set(inventory.summaryIds);
+  let unavailableDetails = 0;
+  // Fetch card-only countries and next episodes for the visible prefix, not the full inventory.
+  const results = await mapConcurrent(matches.slice(0, query.page * PAGE_SIZE), 8, async (result) => {
+    if (!summaryIds.has(result.title.id)) return result;
+    if (!includeCardDetails) return { ...result, detailsPending: true };
+    try {
+      const type = query.mode === "movie" ? "movie" : "tv";
+      const detail = await getTitleRecord(type, Number(result.title.id.slice(type.length + 1)));
+      const nextDate = detail.nextEpisode ? calendarDay(detail.nextEpisode.date, query.timeZone) : "";
+      return {
+        ...result,
+        title: { ...result.title, originCountries: detail.title.originCountries },
+        nextEpisodeDate: nextDate >= today ? nextDate : null,
+      };
+    } catch {
+      unavailableDetails += 1;
+      return result; // Valid source metadata is enough to keep this matching title visible.
+    }
+  });
   return {
-    results: matches.slice(0, query.page * PAGE_SIZE), totalResults: matches.length, totalPages: Math.ceil(matches.length / PAGE_SIZE), page: query.page, hasMore: matches.length > query.page * PAGE_SIZE, snapshot,
-    coverage: { verifiedTitles: inventory.records.filter((record) => record.title.type === query.mode).length, candidateTitles: inventory.candidateCount, unavailableTitles: inventory.failedCount, limited: inventory.limited, unavailablePages: inventory.failedPages, updatedAt: inventory.updatedAt, configured: true },
+    results, detailsPending: results.some((result) => result.detailsPending), totalResults: matches.length, totalPages: Math.ceil(matches.length / PAGE_SIZE), page: query.page, hasMore: matches.length > query.page * PAGE_SIZE, snapshot,
+    coverage: { verifiedTitles: inventory.records.filter((record) => record.title.type === query.mode).length, candidateTitles: inventory.candidateCount, unavailableTitles: inventory.failedCount + unavailableDetails, limited: inventory.limited, unavailablePages: inventory.failedPages, updatedAt: inventory.updatedAt, configured: true },
   };
 }

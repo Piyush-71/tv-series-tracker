@@ -7,7 +7,8 @@ export async function GET(request: Request) {
   const rate = publicApiLimiter.check(getRequestKey(request));
   if (!rate.allowed) return NextResponse.json({ error: { message: "Too many requests. Try again shortly." } }, { status: 429 });
   try {
-    return NextResponse.json(await getBrowsePage(parseBrowseQuery(new URL(request.url).searchParams)));
+    const params = new URL(request.url).searchParams;
+    return NextResponse.json(await getBrowsePage(parseBrowseQuery(params), new Date(), params.get("details") === "1"));
   } catch (error) {
     if (error instanceof BrowseInputError) return NextResponse.json({ error: { message: error.message } }, { status: 400 });
     if (error instanceof BrowseSnapshotChanged) return NextResponse.json({ error: { message: error.message } }, { status: 409 });

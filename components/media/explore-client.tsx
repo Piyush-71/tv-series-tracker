@@ -147,6 +147,31 @@ function ExploreSession({
   useEffect(() => {
     if (initialError) return;
     const controller = new AbortController();
+    async function loadDetails(snapshot: string) {
+      try {
+        const params = new URLSearchParams(apiParams);
+        params.set("details", "1");
+        params.set("snapshot", snapshot);
+        const response = await fetch(`/api/browse?${params}`, { signal: controller.signal });
+        if (!response.ok) throw new Error("Title details unavailable.");
+        const enriched: BrowsePage = await response.json();
+        if (!controller.signal.aborted) setResult(enriched);
+      } catch {
+        if (!controller.signal.aborted) setResult((current) => {
+          if (!current) return null;
+          return {
+            ...current,
+            detailsPending: false,
+            results: current.results.map((item) => ({ ...item, detailsPending: false })),
+            coverage: {
+              ...current.coverage,
+              unavailableTitles: current.coverage.unavailableTitles
+                + current.results.filter((item) => item.detailsPending).length,
+            },
+          };
+        });
+      }
+    }
     async function load() {
       try {
         const response = await fetch(`/api/browse?${apiParams}`, {
@@ -157,8 +182,28 @@ function ExploreSession({
         if (!response.ok)
           throw new Error(body.error?.message || "Could not load results.");
         if (!controller.signal.aborted) {
-          setResult(body);
+          setResult((current) => {
+            const previous = new Map(current?.results.map((item) => [item.title.id, item]));
+            return {
+              ...body,
+              results: body.results.map((item) => {
+                const known = previous.get(item.title.id);
+                if (!item.detailsPending || !known) return item;
+                return {
+                  ...item,
+                  title: {
+                    ...item.title,
+                    originCountries: known.title.originCountries?.length
+                      ? known.title.originCountries : item.title.originCountries,
+                  },
+                  nextEpisodeDate: known.nextEpisodeDate || item.nextEpisodeDate,
+                };
+              }),
+            };
+          });
           setError("");
+          setLoading(false);
+          if (body.detailsPending) void loadDetails(body.snapshot);
         }
       } catch (reason) {
         if (!controller.signal.aborted)
@@ -535,7 +580,7 @@ function ExploreSession({
                 {result.coverage.limited && "A discovery limit was reached; these results and their sort order cover only the fetched selection. Narrow the dates, country, language, genre, or title search to find more specific matches. "}
                 {!!result.coverage.unavailablePages && `${result.coverage.unavailablePages} discovery ${result.coverage.unavailablePages === 1 ? "page" : "pages"} could not be loaded; results may be incomplete. `}
                 {result.coverage.unavailableTitles > 0 &&
-                  `${result.coverage.unavailableTitles} titles could not be verified. `}
+                  `${result.coverage.unavailableTitles} ${result.coverage.unavailableTitles === 1 ? "title has" : "titles have"} unavailable details. `}
                 Unknown season status is excluded from Currently Airing.
               </>
             ) : (

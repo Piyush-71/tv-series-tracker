@@ -27,7 +27,20 @@ Movie dates remain original release dates. Upcoming begins tomorrow in the selec
 - Explore browser tests cover Apply, desktop/mobile language selection, mode switches, future TV/movie wording, shared URLs, reloads, and Back navigation.
 - Live TMDB verification on October 20 returned 69 upcoming Hindi movies and three upcoming returning Hindi series, including season 7 of The Legend of Hanuman. These are observations at verification time; catalog metadata changes.
 - A later browser check on October 21 returned 71 upcoming Hindi movies with correct future labels, no page errors, and no horizontal overflow at 375px. Selected controls measured above 13:1 text contrast in light mode; both themes were visually reviewed.
-- Passed: `npm test -- --reporter=dot` (85 tests), `PLAYWRIGHT_PORT=3000 npm run test:e2e -- --grep 'discovery|language filters|upcoming dates'` (6 tests), `npm run build`, `npx tsc --noEmit`, and `npm run lint -- --ignore-pattern '.agents/**' --ignore-pattern '.claude/**'`.
+- Passed: `npm test -- --reporter=dot` (99 tests), `PLAYWRIGHT_PORT=3100 npm run test:e2e -- --grep 'discovery|language filters|upcoming dates|optional card details'` (7 tests), `npm run build`, `npx tsc --noEmit`, and `npm run lint -- --ignore-pattern '.agents/**' --ignore-pattern '.claude/**'`.
 - The default lint command also scans ignored local `.agents/skills` scripts with pre-existing CommonJS lint violations; those scripts are outside this change.
 
 TMDB references: [TV discovery](https://developer.themoviedb.org/reference/discover-tv), [movie discovery](https://developer.themoviedb.org/reference/discover-movie), [TV catalog search](https://developer.themoviedb.org/reference/search-tv).
+
+## Loading-time follow-up
+
+The initial implementation still loaded every candidate’s full details before displaying a page, and discovery pages were fetched sequentially. A 200-title first page made 212 upstream requests. The installed Next.js implementation also bypasses reads from nested `unstable_cache` calls, causing genre lists and returning-season details to be fetched again across filters.
+
+- Keep independent caches on source pages, configuration, genre lists, and compact per-title details. Assemble inventories outside those cache scopes and deduplicate in-flight title requests.
+- After the first discovery page reveals the page count, fetch the remaining pages with concurrency 4.
+- Use complete source summaries when their metadata is sufficient for the selected filters. Retain mandatory full details for returning/currently-airing seasons, next-episode sorting, incomplete summaries, and country-filtered title search.
+- Return matching titles first, then enrich only visible cards through a snapshot-bound background request. Keep Apply and Load More enabled, preserve previously loaded card details, and ignore cancelled/stale enrichment responses. Optional detail failures retain valid matches.
+
+The 200-title regression now uses 12 upstream requests before displaying results (94% fewer), plus 20 visible-card requests in the background. Pagination and overlapping filter queries reuse cached details. In a controlled 50 ms-per-request comparison, the original implementation took 1,800 ms versus 400 ms for the optimized fully enriched page. Live local checks preserved all 41 Telugu movie matches and their visible ordering; one cached-source foreground request returned in 191 ms, and a browser run displayed results after a 698 ms API request with enrichment completing separately. Cold upstream calls still depend on TMDB/network latency.
+
+Regression coverage includes nested-cache behavior, request budgets, bounded discovery concurrency, metadata reuse, source-only movie country matches, mandatory season verification, progressive rendering, failed optional details, and cancellation of stale updates.

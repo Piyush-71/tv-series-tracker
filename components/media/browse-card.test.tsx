@@ -21,6 +21,10 @@ function result(type: "tv" | "movie", date: string): BrowseResult {
 }
 
 describe("Browse card release wording", () => {
+  it("shows a loading label while optional origin details are pending", () => {
+    render(<BrowseCard premiere="new" result={{ ...result("movie", "2099-01-01"), detailsPending: true }} />);
+    expect(screen.getByText("Loading origin…")).toBeTruthy();
+  });
   it.each(["tv", "movie"] as const)("uses future wording for an upcoming %s", (type) => {
     render(<BrowseCard premiere="new" result={result(type, "2099-01-01")} />);
     expect(screen.getByText(type === "tv" ? /Premieres Jan 1, 2099/ : /Releases Jan 1, 2099/)).toBeTruthy();
