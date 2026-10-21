@@ -1,18 +1,11 @@
 import { cache } from "react";
-import { mediaTitles as staticFallbackTitles } from "@/data/media";
+import { mediaTitles as fallbackTitles } from "@/data/media";
 import type { MediaTitle } from "@/types/media";
-import { tmdbFetch, hasTmdbCredentials } from "@/lib/tmdb/client";
+import { tmdbFetch, hasTmdbCredentials, TmdbApiError } from "@/lib/tmdb/client";
 import { makeGenreMap, parseTmdbSlug, toMediaEpisode, toMediaTitle } from "@/lib/tmdb/mapper";
 import type { CatalogGroup, DiscoveryFilters, DiscoveryPage, TmdbDetails, TmdbGenre, TmdbListItem, TmdbListResponse, TmdbMediaType, TmdbProvider, TmdbQuery, TmdbSeason } from "@/lib/tmdb/types";
 
 const today = new Date().toISOString().slice(0, 10);
-const fallbackAnchor = new Date();
-fallbackAnchor.setUTCHours(20, 0, 0, 0);
-const fallbackOffsets = [2, 4, 7, 10, 14, 21, 28, 35];
-const fallbackTitles = staticFallbackTitles.map((title, index) => ({
-  ...title,
-  releaseDate: new Date(fallbackAnchor.getTime() + fallbackOffsets[index] * 86_400_000).toISOString(),
-}));
 
 async function getGenres() {
   const [movie, tv] = await Promise.all([
@@ -94,25 +87,28 @@ export async function getAllTitles() {
 }
 
 export const getTitleBySlug = cache(async (slug: string) => {
-  if (!hasTmdbCredentials()) {
-    return fallbackTitles.find((title) => title.slug === slug);
-  }
+  // Sample links remain valid when credentials are configured or a catalog falls back.
+  const sampleTitle = fallbackTitles.find((title) => title.slug === slug);
+  if (sampleTitle) return sampleTitle;
 
   const parsed = parseTmdbSlug(slug);
   if (!parsed) return undefined;
+  if (!hasTmdbCredentials()) throw new Error("TMDB_API_READ_ACCESS_TOKEN is not configured.");
 
+  let details: TmdbDetails;
   try {
-    const genreMap = await getGenres();
-    const details = await tmdbFetch<TmdbDetails>(`/${parsed.mediaType}/${parsed.id}`, {
+    details = await tmdbFetch<TmdbDetails>(`/${parsed.mediaType}/${parsed.id}`, {
       params: { append_to_response: "videos,credits,watch/providers,similar,release_dates,content_ratings", language: "en-US" },
       revalidate: 60 * 60,
     });
-
-    return toMediaTitle(details, genreMap, parsed.mediaType);
   } catch (error) {
-    console.error(`TMDB title fetch failed for ${slug}; using catalog copy when available.`, error);
-    return findKnownTitle(slug);
+    // Only this title endpoint's 404 establishes that the identity is missing.
+    if (error instanceof TmdbApiError && error.status === 404) return undefined;
+    throw error;
   }
+
+  const genreMap = await getGenres();
+  return toMediaTitle(details, genreMap, parsed.mediaType);
 });
 
 export async function getSimilarTitles(slug: string) {

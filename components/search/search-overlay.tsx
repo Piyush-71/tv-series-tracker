@@ -83,7 +83,7 @@ export function SearchOverlay({
           htmlFor="overlay-search"
           className="mb-2 block text-sm text-muted"
         >
-          Search titles, genres, or platforms
+          Search titles
         </label>
         <div className="relative">
           <Search
@@ -98,7 +98,7 @@ export function SearchOverlay({
             autoFocus
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Find your next great watch"
+            placeholder="Enter a movie or series title"
             className="pl-12"
           />
         </div>
@@ -237,7 +237,7 @@ export function SearchOverlay({
             />
             <h3 className="font-semibold">No stories found</h3>
             <p className="mt-3 text-sm text-muted">
-              Try another title, genre, or platform.
+              Try another title.
             </p>
           </div>
         )}

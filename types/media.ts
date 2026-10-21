@@ -39,6 +39,7 @@ export type MediaTitle = {
   title: string;
   type: MediaType;
   description: string;
+  /** Empty when the source has not announced a release date. */
   releaseDate: string;
   releasePrecision?: "date" | "datetime";
   releaseDates?: ReleaseDateOption[];

@@ -156,7 +156,7 @@ test("search contains keyboard focus and restores it on dismissal", async ({ pag
   await trigger.click();
   const dialog = page.getByRole("dialog", { name: "Search titles" });
   await expect(dialog).toBeVisible();
-  const input = dialog.getByLabel("Search titles, genres, or platforms");
+  const input = dialog.getByLabel("Search titles", { exact: true });
   await expect(input).toBeFocused();
   await input.fill("Echoes");
   await expect(dialog.getByRole("status")).toHaveText("1 titles found");

@@ -44,9 +44,11 @@ export function CountdownTimer({
         </p>
         {compact ? null : (
           <p className="mt-2 text-xs opacity-80">
-            {precision === "date"
-              ? "Exact airtime hasn’t been announced"
-              : presentation.timeZoneLabel}
+            {presentation.kind === "unknown"
+              ? "Release date hasn’t been announced"
+              : precision === "date"
+                ? "Exact airtime hasn’t been announced"
+                : presentation.timeZoneLabel}
           </p>
         )}
       </div>

@@ -9,12 +9,18 @@ export function formatReleaseDate(date: string) {
   const value = /^\d{4}-\d{2}-\d{2}$/.test(date)
     ? new Date(`${date}T12:00:00Z`)
     : new Date(date);
+  if (!Number.isFinite(value.getTime())) return "TBA";
   return new Intl.DateTimeFormat("en", {
     month: "short",
     day: "numeric",
     year: "numeric",
     ...(/^\d{4}-\d{2}-\d{2}$/.test(date) ? { timeZone: "UTC" } : {}),
   }).format(value);
+}
+
+export function formatReleaseYear(date: string) {
+  const year = new Date(date).getFullYear();
+  return Number.isFinite(year) ? String(year) : "TBA";
 }
 
 export function slugToTitle(slug: string) {

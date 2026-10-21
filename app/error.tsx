@@ -6,10 +6,10 @@ import { Button } from "@/components/ui/button";
 
 export default function ErrorPage({
   error,
-  unstable_retry,
+  retry,
 }: {
   error: Error & { digest?: string };
-  unstable_retry: () => void;
+  retry: () => void;
 }) {
   useEffect(() => {
     void fetch("/api/telemetry", {
@@ -34,7 +34,7 @@ export default function ErrorPage({
           Cinecount could not load this view. Your locally saved tracking data
           is safe.
         </p>
-        <Button className="mt-6" onClick={unstable_retry}>
+        <Button className="mt-6" onClick={retry}>
           <RotateCcw size={17} />
           Try again
         </Button>

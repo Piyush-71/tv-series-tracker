@@ -26,14 +26,14 @@ export default async function SearchPage({ searchParams }: Props) {
             htmlFor="page-search"
             className="mb-2 block text-sm text-muted"
           >
-            Search titles, genres, or platforms
+            Search titles
           </label>
           <Input
             id="page-search"
             name="q"
             type="search"
             defaultValue={q}
-            placeholder="What are you looking for?"
+            placeholder="Enter a movie or series title"
           />
         </div>
         <Button type="submit" size="lg">
