@@ -32,6 +32,57 @@ test("discovery applies filters and displays verified cards", async ({ page }) =
   await expect(page.locator("article").first()).toContainText("Echoes of Orion");
 });
 
+test("Explore displays matches before optional card details finish", async ({ page }) => {
+  let releaseDetails!: () => void;
+  const detailsReady = new Promise<void>((resolve) => { releaseDetails = resolve; });
+  await page.route("**/api/browse?**", async (route) => {
+    const details = new URL(route.request().url()).searchParams.get("details") === "1";
+    if (details) await detailsReady;
+    await route.fulfill({ json: {
+      detailsPending: !details,
+      results: [{ title: { ...mediaTitles[0], originCountries: details ? ["IN"] : [] }, date: "2099-01-01", season: 1, nextEpisodeDate: null, rating: 8, popularity: 99, detailsPending: !details }],
+      totalResults: 1, totalPages: 1, page: 1, hasMore: false, snapshot: "0123456789abcdef",
+      coverage: { configured: true, verifiedTitles: 1, candidateTitles: 1, unavailableTitles: 0, updatedAt: "2026-10-21" },
+    } });
+  });
+  await page.goto("/explore?range=upcoming");
+  await expect(page.locator("article")).toContainText("Echoes of Orion");
+  await expect(page.locator("article")).toContainText("Loading origin…");
+  await expect(page.getByRole("button", { name: "Apply filters", exact: true })).toBeEnabled();
+  releaseDetails();
+  await expect(page.locator("article")).toContainText("India");
+  await expect(page.locator("article")).not.toContainText("Loading origin…");
+});
+
+test("upcoming dates survive content switches, reloads, and Back navigation", async ({ page }) => {
+  await page.route("**/api/browse?**", (route) => {
+    const movie = new URL(route.request().url()).searchParams.get("type") === "movie";
+    return route.fulfill({ json: {
+      results: [{ title: { ...mediaTitles[0], type: movie ? "movie" : "tv" }, date: "2099-01-01", season: movie ? null : 1, nextEpisodeDate: null, rating: null, popularity: 99 }],
+      totalResults: 1, totalPages: 1, page: 1, hasMore: false, snapshot: "0123456789abcdef",
+      coverage: { configured: true, verifiedTitles: 1, candidateTitles: 1, unavailableTitles: 0, limited: true, unavailablePages: 1, updatedAt: "2026-10-20" },
+    } });
+  });
+  await page.goto("/explore");
+  await expect(page.getByRole("button", { name: "Apply filters", exact: true })).toBeEnabled();
+  await page.getByLabel("Premiere-date range").selectOption("upcoming");
+  await expect(page.getByLabel("Sort results")).toHaveValue("oldest");
+  await page.getByRole("button", { name: "Apply filters", exact: true }).click();
+  await expect(page.locator("article")).toContainText("Premieres Jan 1, 2099");
+  await page.getByRole("button", { name: "Movies", exact: true }).click();
+  await expect(page.getByLabel("Release-date range")).toHaveValue("upcoming");
+  await page.getByRole("button", { name: "Apply filters", exact: true }).click();
+  await expect(page.locator("article")).toContainText("Releases Jan 1, 2099");
+  await expect(page.getByRole("status")).toContainText("Soonest release");
+  await expect(page.getByText(/A discovery limit was reached/)).toBeVisible();
+  await expect(page.getByText(/1 discovery page could not be loaded/)).toBeVisible();
+  await page.reload();
+  await expect(page.getByLabel("Release-date range")).toHaveValue("upcoming");
+  await page.goBack();
+  await expect(page.getByLabel("Premiere-date range")).toHaveValue("upcoming");
+  await expect(page.locator("article")).toContainText("Premieres Jan 1, 2099");
+});
+
 for (const mobile of [false, true]) {
   for (const mode of ["tv", "movie"]) {
     test(`language filters apply and persist for ${mode} on ${mobile ? "mobile" : "desktop"}`, async ({ page }) => {

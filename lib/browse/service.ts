@@ -1,14 +1,16 @@
 import { createHash } from "node:crypto";
 import { unstable_cache } from "next/cache";
 import { hasTmdbCredentials, tmdbFetch } from "@/lib/tmdb/client";
-import { simklScheduleSource } from "@/lib/schedule/simkl";
-import { calendarDay, filterBrowseRecords } from "@/lib/browse/filter";
+import { browseDateBounds, calendarDay, filterBrowseRecords } from "@/lib/browse/filter";
 import { toBrowseRecord } from "@/lib/browse/mapper";
+import { browseQueryParams, parseBrowseQuery } from "@/lib/browse/query";
 import type { BrowseInventory, BrowseOptions, BrowsePage, BrowseQuery } from "@/lib/browse/types";
 import type { TmdbDetails, TmdbGenre, TmdbListItem, TmdbListResponse, TmdbMediaType } from "@/lib/tmdb/types";
 
 const PAGE_SIZE = 20;
-const CALENDAR_LIMIT = 80;
+// Bound cold-request work. Report a partial selection instead of claiming catalog totals.
+const MAX_PAGES_PER_LANGUAGE = 10;
+const DISCOVERY_PAGE_BUDGET = 20;
 const REVALIDATE = 3600;
 
 export class BrowseSnapshotChanged extends Error {}
@@ -40,99 +42,213 @@ const defaultOptions: BrowseOptions = {
   genres: ["Action", "Action & Adventure", "Animation", "Comedy", "Crime", "Documentary", "Drama", "Family", "Fantasy", "Horror", "Mystery", "Romance", "Sci-Fi & Fantasy", "Science Fiction", "Thriller"],
 };
 
-const cachedOptions = unstable_cache(async (): Promise<BrowseOptions> => {
-  const [genres, countries, languages] = await Promise.all([
-    cachedGenreLists(),
+const cachedConfiguration = unstable_cache(async () => {
+  const [countries, languages] = await Promise.all([
     tmdbFetch<Array<{ iso_3166_1: string; english_name: string }>>("/configuration/countries", { revalidate: REVALIDATE }),
     tmdbFetch<Array<{ iso_639_1: string; english_name: string }>>("/configuration/languages", { revalidate: REVALIDATE }),
   ]);
-  return { genres: [...new Set(genres.map((genre) => genre.name))].sort(), countries: countries.map((country) => ({ code: country.iso_3166_1, label: country.english_name })).sort((a, b) => a.label.localeCompare(b.label)), languages: languages.map((language) => ({ code: language.iso_639_1, label: language.english_name || language.iso_639_1 })).sort((a, b) => a.label.localeCompare(b.label)) };
-}, ["browse-options-v2"], { revalidate: REVALIDATE });
+  return {
+    countries: countries.map((country) => ({ code: country.iso_3166_1, label: country.english_name })).sort((a, b) => a.label.localeCompare(b.label)),
+    languages: languages.map((language) => ({ code: language.iso_639_1, label: language.english_name || language.iso_639_1 })).sort((a, b) => a.label.localeCompare(b.label)),
+  };
+}, ["browse-configuration-v1"], { revalidate: REVALIDATE });
+
+async function cachedOptions(): Promise<BrowseOptions> {
+  const [genres, configuration] = await Promise.all([cachedGenreLists(), cachedConfiguration()]);
+  return { genres: [...new Set(genres.map((genre) => genre.name))].sort(), ...configuration };
+}
 
 export async function getBrowseOptions(): Promise<BrowseOptions> {
   if (!hasTmdbCredentials()) return defaultOptions;
   try { return await cachedOptions(); } catch { return defaultOptions; }
 }
 
-async function discover(type: TmdbMediaType, params: Record<string, string | number>) {
-  return tmdbFetch<TmdbListResponse<TmdbListItem>>(`/discover/${type}`, { params: { include_adult: false, language: "en-US", ...params }, revalidate: REVALIDATE });
-}
-
-/** A bounded inventory independent of user filters, to keep all sorts globally consistent. */
-async function loadInventory(type: TmdbMediaType): Promise<BrowseInventory> {
-  const now = new Date();
-  const today = now.toISOString().slice(0, 10);
-  const tomorrow = new Date(now.getTime() + 86_400_000).toISOString().slice(0, 10);
-  const recent = new Date(now.getTime() - 90 * 86_400_000).toISOString().slice(0, 10);
-  const dateField = type === "movie" ? "primary_release_date" : "first_air_date";
-  const requests = [
-    discover(type, { [`${dateField}.gte`]: recent, [`${dateField}.lte`]: today, sort_by: "popularity.desc", page: 1 }),
-    discover(type, { [`${dateField}.gte`]: recent, [`${dateField}.lte`]: today, sort_by: "popularity.desc", page: 2 }),
-    discover(type, { [`${dateField}.gte`]: tomorrow, sort_by: `${dateField}.asc`, page: 1 }),
-    discover(type, { sort_by: "popularity.desc", page: 1 }),
-  ];
-  if (type === "tv") {
-    requests.push(discover("tv", { "air_date.gte": today, sort_by: "popularity.desc", page: 1 }));
-    requests.push(discover("tv", { with_origin_country: "JP", with_genres: 16, sort_by: "popularity.desc", page: 1 }));
-  }
-  const [responses, genres, calendar] = await Promise.all([
-    Promise.allSettled(requests), cachedGenreLists(),
-    type === "tv" ? simklScheduleSource.list() : Promise.resolve([]),
-  ]);
-  const successful = responses.flatMap((response) => response.status === "fulfilled" ? [response.value] : []);
-  if (!successful.length) throw new Error("Browse discovery sources unavailable");
-  const ids = new Set<number>(successful.flatMap((response) => response.results.map((item) => item.id)));
-  // Prefer calendar shows with a nearby premiere, then nearby episodes.
-  const calendarShows = [...calendar].sort((a, b) => Number(b.episodeNumber === 1) - Number(a.episodeNumber === 1) || Math.abs(Date.parse(a.airsAt) - now.getTime()) - Math.abs(Date.parse(b.airsAt) - now.getTime()));
-  const calendarIds = new Set<number>();
-  for (const item of calendarShows) {
-    if (calendarIds.size >= CALENDAR_LIMIT) break;
-    if (item.tmdbId && /^\d+$/.test(item.tmdbId)) calendarIds.add(Number(item.tmdbId));
-  }
-  calendarIds.forEach((id) => ids.add(id));
-  const genreMap = new Map(genres.map((genre) => [genre.id, genre.name]));
-  const candidates = [...ids].sort((a, b) => a - b);
-  const records: BrowseInventory["records"] = [];
-  let failedCount = 0;
+async function mapConcurrent<T, R>(items: T[], concurrency: number, visit: (item: T) => Promise<R>): Promise<R[]> {
+  const results: R[] = new Array(items.length);
   let cursor = 0;
-  // Bound concurrency; cache only the compact metadata required for browsing.
-  await Promise.all(Array.from({ length: Math.min(8, candidates.length) }, async () => {
-    while (cursor < candidates.length) {
-      const id = candidates[cursor++];
-      try {
-        const details = await tmdbFetch<TmdbDetails>(`/${type}/${id}`, { params: { language: "en-US" }, revalidate: REVALIDATE });
-        records.push(toBrowseRecord(details, genreMap, type));
-      } catch { failedCount += 1; }
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, async () => {
+    while (cursor < items.length) {
+      const index = cursor++;
+      results[index] = await visit(items[index]);
     }
   }));
-  if (!records.length && candidates.length) throw new Error("Browse title metadata unavailable");
-  records.sort((a, b) => a.title.id.localeCompare(b.title.id));
-  const snapshot = createHash("sha256").update(JSON.stringify(records)).digest("hex").slice(0, 16);
-  return { records, candidateCount: candidates.length, failedCount, snapshot, updatedAt: now.toISOString() };
+  return results;
 }
 
-const cachedInventory = unstable_cache(loadInventory, ["browse-inventory-v2"], { revalidate: REVALIDATE, tags: ["browse-inventory"] });
-const inFlight = new Map<TmdbMediaType, Promise<BrowseInventory>>();
+// Cache compact details independently of the active filters, including DNS-fallback responses.
+const cachedTitleRecord = unstable_cache(async (type: TmdbMediaType, id: number) => {
+  const details = await tmdbFetch<TmdbDetails>(`/${type}/${id}`, { params: { language: "en-US" }, revalidate: REVALIDATE });
+  return toBrowseRecord(details, new Map(), type);
+}, ["browse-title-record-v1"], { revalidate: REVALIDATE, tags: ["browse-inventory"] });
+const titleRequests = new Map<string, Promise<BrowseInventory["records"][number]>>();
 
-function getInventory(type: TmdbMediaType) {
-  const pending = inFlight.get(type);
+function getTitleRecord(type: TmdbMediaType, id: number) {
+  const key = `${type}:${id}`;
+  const pending = titleRequests.get(key);
   if (pending) return pending;
-  const request = cachedInventory(type).finally(() => inFlight.delete(type));
-  inFlight.set(type, request);
+  const request = cachedTitleRecord(type, id).finally(() => titleRequests.delete(key));
+  titleRequests.set(key, request);
   return request;
 }
 
-export async function getBrowsePage(query: BrowseQuery, now = new Date()): Promise<BrowsePage> {
+function hasPremiereSummary(item: TmdbListItem, type: TmdbMediaType) {
+  return typeof (type === "movie" ? item.title : item.name) === "string"
+    && typeof (type === "movie" ? item.release_date : item.first_air_date) === "string"
+    && Array.isArray(item.genre_ids)
+    && (type === "movie" || Array.isArray(item.origin_country));
+}
+
+type DiscoveryPlan = { path: string; params: Record<string, string | number | boolean> };
+
+const cachedSourcePage = unstable_cache(async (path: string, paramsKey: string) => {
+  const params: DiscoveryPlan["params"] = JSON.parse(paramsKey);
+  return tmdbFetch<TmdbListResponse<TmdbListItem>>(path, { params, revalidate: REVALIDATE });
+}, ["browse-source-page-v1"], { revalidate: REVALIDATE, tags: ["browse-inventory"] });
+
+function discoveryPlans(query: BrowseQuery, genres: TmdbGenre[], today: string): DiscoveryPlan[] {
+  const type = query.mode === "movie" ? "movie" : "tv";
+  const path = `/${query.query ? "search" : "discover"}/${type}`;
+  const params: DiscoveryPlan["params"] = { include_adult: false, language: "en-US" };
+  if (query.query) {
+    params.query = query.query;
+    return [{ path, params }];
+  }
+  const dateField = type === "movie" ? "primary_release_date" : query.premiere === "new" ? "first_air_date" : "air_date";
+  const { from, to } = browseDateBounds(query, today);
+  if (from) params[`${dateField}.gte`] = from;
+  if (to) params[`${dateField}.lte`] = to;
+  if (type === "tv") {
+    params.timezone = query.timeZone;
+    // A confirmed episode today is still airing; its exact time is unknown here.
+    if (query.premiere === "airing") params["air_date.gte"] = today;
+  }
+  const sortDate = type === "movie" ? "primary_release_date" : "first_air_date";
+  const sorts = { newest: `${sortDate}.desc`, oldest: `${sortDate}.asc`, rating: "vote_average.desc", popularity: "popularity.desc", title: type === "movie" ? "title.asc" : "name.asc", next_episode: "popularity.desc" };
+  // TMDB cannot sort by a returning season's premiere. Verify and sort locally.
+  params.sort_by = type === "tv" && query.premiere !== "new" && ["newest", "oldest"].includes(query.sort) ? "popularity.desc" : sorts[query.sort];
+  if (query.countries.length) params.with_origin_country = query.countries.join("|");
+  const genreIds = genres.filter((genre) => query.genres.some((value) => value.toLowerCase() === genre.name.toLowerCase())).map((genre) => genre.id);
+  if (genreIds.length) params.with_genres = [...new Set(genreIds)].join("|");
+  if (query.mode === "anime") {
+    params.with_origin_country = "JP";
+    params.with_genres = 16;
+  }
+  if (query.minRating !== null) {
+    params["vote_average.gte"] = query.minRating;
+    params["vote_count.gte"] = 1;
+  }
+  // Original language is a single-value TMDB filter. Merge language searches for OR semantics.
+  return (query.languages.length ? query.languages : [""]).map((language) => ({ path, params: { ...params, ...(language ? { with_original_language: language } : {}) } }));
+}
+
+/** Discover candidates for the actual filters, then verify season metadata before pagination. */
+async function loadInventory(queryKey: string, today: string): Promise<BrowseInventory> {
+  const query = parseBrowseQuery(new URLSearchParams(queryKey));
+  const type: TmdbMediaType = query.mode === "movie" ? "movie" : "tv";
+  const now = new Date();
+  const genres = await cachedGenreLists();
+  const plans = discoveryPlans(query, genres, today);
+  const pageLimit = Math.min(MAX_PAGES_PER_LANGUAGE, Math.max(1, Math.floor(DISCOVERY_PAGE_BUDGET / plans.length)));
+  let limited = false;
+  let failedPages = 0;
+  let successfulPages = 0;
+  async function fetchPage(plan: DiscoveryPlan, page: number) {
+    try {
+      const response = await cachedSourcePage(plan.path, JSON.stringify({ ...plan.params, page }));
+      successfulPages += 1;
+      limited ||= response.total_pages > pageLimit;
+      return response;
+    } catch {
+      failedPages += 1;
+      return null;
+    }
+  }
+  // Learn the source page counts once, then fetch independent pages in parallel.
+  const firstPages = await mapConcurrent(plans, 4, (plan) => fetchPage(plan, 1));
+  const remaining = plans.flatMap((plan, index) => Array.from(
+    { length: Math.max(0, Math.min(firstPages[index]?.total_pages || 0, pageLimit) - 1) },
+    (_, page) => ({ plan, page: page + 2 }),
+  ));
+  const otherPages = await mapConcurrent(remaining, 4, ({ plan, page }) => fetchPage(plan, page));
+  if (!successfulPages) throw new Error("Browse discovery sources unavailable");
+  const items = new Map<number, TmdbListItem>();
+  for (const response of [...firstPages, ...otherPages]) {
+    for (const item of response?.results || []) if (!items.has(item.id)) items.set(item.id, item);
+  }
+  const genreMap = new Map(genres.map((genre) => [genre.id, genre.name]));
+  const candidates = [...items.values()].sort((a, b) => a.id - b.id);
+  const summaryIds: string[] = [];
+  let failedCount = 0;
+  const needsSeasonDetails = type === "tv" && (query.premiere !== "new" || query.sort === "next_episode");
+  // Search cannot apply country constraints upstream. Movie discovery can.
+  const needsCountryDetails = !!query.query && query.countries.length > 0;
+  const loaded = await mapConcurrent(candidates, 8, async (item) => {
+    if (!needsSeasonDetails && !needsCountryDetails && hasPremiereSummary(item, type)) {
+      const record = toBrowseRecord(item, genreMap, type);
+      summaryIds.push(record.title.id);
+      return record;
+    }
+    try { return await getTitleRecord(type, item.id); }
+    catch { failedCount += 1; return null; }
+  });
+  const records = loaded.filter((record) => record !== null);
+  if (!records.length && candidates.length) throw new Error("Browse title metadata unavailable");
+  records.sort((a, b) => a.title.id.localeCompare(b.title.id));
+  const snapshot = createHash("sha256").update(JSON.stringify(records)).digest("hex").slice(0, 16);
+  return { records, summaryIds: summaryIds.sort(), candidateCount: candidates.length, failedCount, limited, failedPages, snapshot, updatedAt: now.toISOString() };
+}
+
+// Cache leaf requests only. Next.js bypasses existing entries for nested unstable_cache calls.
+const inFlight = new Map<string, Promise<BrowseInventory>>();
+
+function getInventory(queryKey: string, today: string) {
+  const key = `${queryKey}:${today}`;
+  const pending = inFlight.get(key);
+  if (pending) return pending;
+  const request = loadInventory(queryKey, today).finally(() => inFlight.delete(key));
+  inFlight.set(key, request);
+  return request;
+}
+
+export async function getBrowsePage(query: BrowseQuery, now = new Date(), includeCardDetails = true): Promise<BrowsePage> {
   if (!hasTmdbCredentials()) {
     return { results: [], totalResults: 0, totalPages: 0, page: query.page, hasMore: false, snapshot: "", coverage: { verifiedTitles: 0, candidateTitles: 0, unavailableTitles: 0, updatedAt: null, configured: false } };
   }
-  const inventory = await getInventory(query.mode === "movie" ? "movie" : "tv");
+  const queryKey = browseQueryParams({ ...query, page: 1, snapshot: undefined }).toString();
+  const today = calendarDay(now, query.timeZone);
+  const inventory = await getInventory(queryKey, today);
   // Relative date windows can change at local midnight even if the inventory did not.
-  const snapshot = createHash("sha256").update(`${inventory.snapshot}:${calendarDay(now, query.timeZone)}:${query.timeZone}`).digest("hex").slice(0, 16);
+  const snapshot = createHash("sha256").update(`${inventory.snapshot}:${today}:${queryKey}`).digest("hex").slice(0, 16);
   if (query.snapshot && query.snapshot !== snapshot) throw new BrowseSnapshotChanged("Browse data changed. Apply filters again to refresh the results.");
-  const matches = filterBrowseRecords(inventory.records, query, now);
+  const filterQuery = {
+    ...query,
+    query: "", // TMDB search already matched original/translated/alternative names.
+    // Movie list responses omit origin countries, but discovery applied this constraint.
+    countries: query.mode === "movie" && !query.query ? [] : query.countries,
+  };
+  const matches = filterBrowseRecords(inventory.records, filterQuery, now);
+  const summaryIds = new Set(inventory.summaryIds);
+  let unavailableDetails = 0;
+  // Fetch card-only countries and next episodes for the visible prefix, not the full inventory.
+  const results = await mapConcurrent(matches.slice(0, query.page * PAGE_SIZE), 8, async (result) => {
+    if (!summaryIds.has(result.title.id)) return result;
+    if (!includeCardDetails) return { ...result, detailsPending: true };
+    try {
+      const type = query.mode === "movie" ? "movie" : "tv";
+      const detail = await getTitleRecord(type, Number(result.title.id.slice(type.length + 1)));
+      const nextDate = detail.nextEpisode ? calendarDay(detail.nextEpisode.date, query.timeZone) : "";
+      return {
+        ...result,
+        title: { ...result.title, originCountries: detail.title.originCountries },
+        nextEpisodeDate: nextDate >= today ? nextDate : null,
+      };
+    } catch {
+      unavailableDetails += 1;
+      return result; // Valid source metadata is enough to keep this matching title visible.
+    }
+  });
   return {
-    results: matches.slice(0, query.page * PAGE_SIZE), totalResults: matches.length, totalPages: Math.ceil(matches.length / PAGE_SIZE), page: query.page, hasMore: matches.length > query.page * PAGE_SIZE, snapshot,
-    coverage: { verifiedTitles: inventory.records.filter((record) => record.title.type === query.mode).length, candidateTitles: inventory.candidateCount, unavailableTitles: inventory.failedCount, updatedAt: inventory.updatedAt, configured: true },
+    results, detailsPending: results.some((result) => result.detailsPending), totalResults: matches.length, totalPages: Math.ceil(matches.length / PAGE_SIZE), page: query.page, hasMore: matches.length > query.page * PAGE_SIZE, snapshot,
+    coverage: { verifiedTitles: inventory.records.filter((record) => record.title.type === query.mode).length, candidateTitles: inventory.candidateCount, unavailableTitles: inventory.failedCount + unavailableDetails, limited: inventory.limited, unavailablePages: inventory.failedPages, updatedAt: inventory.updatedAt, configured: true },
   };
 }

@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 import { browseQueryParams, defaultBrowseQuery, parseBrowseQuery } from "@/lib/browse/query";
 
 describe("browse URLs", () => {
+  it("defaults Upcoming to the soonest premiere while honoring an explicit sort", () => {
+    expect(parseBrowseQuery(new URLSearchParams("range=upcoming")).sort).toBe("oldest");
+    expect(parseBrowseQuery(new URLSearchParams("range=upcoming&sort=rating")).sort).toBe("rating");
+  });
   it("starts with the agreed defaults and chosen timezone", () => {
     expect(parseBrowseQuery(new URLSearchParams(), "Asia/Kolkata")).toMatchObject({ mode: "tv", premiere: "new", range: "30", sort: "newest", minRating: null, page: 1, timeZone: "Asia/Kolkata" });
   });
