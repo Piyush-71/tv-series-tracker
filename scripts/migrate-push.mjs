@@ -1,8 +1,8 @@
-import { loadEnvConfig } from "@next/env";
+import nextEnv from "@next/env";
 import { neon } from "@neondatabase/serverless";
 import { readFile } from "node:fs/promises";
 
-loadEnvConfig(process.cwd());
+nextEnv.loadEnvConfig(process.cwd());
 if (!process.env.DATABASE_URL)
   throw new Error("Set DATABASE_URL before running the push migration.");
 const sql = neon(process.env.DATABASE_URL);
