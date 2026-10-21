@@ -3,41 +3,29 @@
 import { Share2 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
-import type { MediaTitle } from "@/types/media";
 import { useWatchlist } from "@/hooks/use-watchlist";
-import { MediaGrid } from "@/components/media/media-grid";
-import { ScheduleCard } from "@/components/schedule/schedule-card";
+import { CollectionGrid } from "@/components/media/collection-grid";
+import { useCollection } from "@/hooks/use-collection";
 import { Button } from "@/components/ui/button";
-import { getScheduleTrackerId } from "@/lib/schedule/format";
-import type { ScheduledEpisode } from "@/types/schedule";
 
-export function WatchlistClient({
-  items,
-  schedule = [],
-}: {
-  items: MediaTitle[];
-  schedule?: ScheduledEpisode[];
-}) {
+export function WatchlistClient() {
   const watchlist = useWatchlist();
-  const saved = items.filter((item) => watchlist.ids.includes(item.id));
-  const followedShows = schedule.filter((episode, index) => {
-    const trackerId = getScheduleTrackerId(episode);
-    return (
-      watchlist.ids.includes(trackerId) &&
-      schedule.findIndex((item) => item.showId === episode.showId) === index
-    );
-  });
+  const collection = useCollection(watchlist.ids);
   const [shared, setShared] = useState(false);
+  const [shareError, setShareError] = useState("");
 
   async function share() {
     const url = new URL("/shared", window.location.origin);
     url.searchParams.set("ids", watchlist.ids.join(","));
-    await navigator.clipboard.writeText(url.toString());
-    setShared(true);
-    window.setTimeout(() => setShared(false), 2000);
+    try {
+      await navigator.clipboard.writeText(url.toString());
+      setShared(true);
+      setShareError("");
+      window.setTimeout(() => setShared(false), 2000);
+    } catch { setShareError("The link could not be copied. Allow clipboard access and try again."); }
   }
 
-  if (!saved.length && !followedShows.length) {
+  if (!watchlist.ids.length) {
     return (
       <div className="empty-state">
         <h2 className="text-2xl font-semibold text-foreground">
@@ -62,26 +50,8 @@ export function WatchlistClient({
           {shared ? "Link copied" : "Share this list"}
         </Button>
       </div>
-      {followedShows.length ? (
-        <div className="mb-10">
-          <h2 className="mb-4 text-xl font-semibold text-foreground">
-            Next episodes
-          </h2>
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {followedShows.map((episode) => (
-              <ScheduleCard key={episode.id} episode={episode} />
-            ))}
-          </div>
-        </div>
-      ) : null}
-      {saved.length ? (
-        <div>
-          <h2 className="mb-4 text-xl font-semibold text-foreground">
-            Saved titles
-          </h2>
-          <MediaGrid items={saved} />
-        </div>
-      ) : null}
+      {shareError ? <p role="alert" className="mb-4 text-sm text-danger">{shareError}</p> : null}
+      <CollectionGrid entries={collection.entries} loading={collection.loading} onRemove={watchlist.toggle} onRetry={collection.refresh} />
     </div>
   );
 }

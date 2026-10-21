@@ -11,9 +11,10 @@ import {
   RotateCcw,
   Star,
 } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
-import type { MediaTitle } from "@/types/media";
-import { MediaGrid } from "@/components/media/media-grid";
+import { useRef, useState } from "react";
+import { CollectionGrid } from "@/components/media/collection-grid";
+import { useCollection } from "@/hooks/use-collection";
+import type { CollectionEntry } from "@/types/collection";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { TimezoneSelect } from "@/components/tracker/timezone-select";
@@ -21,11 +22,9 @@ import { useTracker } from "@/hooks/use-tracker";
 import { importTrackerData } from "@/lib/tracker";
 
 export function ProfileClient({
-  items,
   genres,
   services,
 }: {
-  items: MediaTitle[];
   genres: string[];
   services: string[];
 }) {
@@ -33,20 +32,15 @@ export function ProfileClient({
   const tracker = useTracker();
   const inputRef = useRef<HTMLInputElement>(null);
   const [message, setMessage] = useState("");
-  const itemMap = useMemo(
-    () => new Map(items.map((item) => [item.id, item])),
-    [items],
-  );
-  const recent = tracker.data.recentlyViewed
-    .map((entry) => itemMap.get(entry.id))
-    .filter(Boolean)
-    .slice(0, 6) as MediaTitle[];
-  const watched = tracker.data.watchedTitleIds
-    .map((id) => itemMap.get(id))
-    .filter(Boolean) as MediaTitle[];
-  const rated = Object.keys(tracker.data.ratings)
-    .map((id) => itemMap.get(id))
-    .filter(Boolean) as MediaTitle[];
+  const recentIds = tracker.data.recentlyViewed.map((entry) => entry.id);
+  const watchedIds = tracker.data.watchedTitleIds;
+  const ratedIds = Object.keys(tracker.data.ratings);
+  const collection = useCollection([...recentIds, ...watchedIds, ...ratedIds]);
+  const entryMap = new Map(collection.entries.map((entry) => [entry.id, entry]));
+  const entriesFor = (ids: string[]) => ids.flatMap((id) => entryMap.get(id) ? [entryMap.get(id)!] : []);
+  const recent = entriesFor(recentIds);
+  const watched = entriesFor(watchedIds);
+  const rated = entriesFor(ratedIds);
   const reminders = Object.values(tracker.data.reminders);
 
   function togglePreference(key: "favoriteGenres" | "services", value: string) {
@@ -306,15 +300,17 @@ export function ProfileClient({
       </section>
 
       {recent.length ? (
-        <Collection title="Recently viewed" items={recent} />
+        <Collection title="Recently viewed" entries={recent} loading={collection.loading} onRetry={collection.refresh} />
       ) : null}
       {watched.length ? (
-        <Collection title="Watched history" items={watched} />
+        <Collection title="Watched history" entries={watched} loading={collection.loading} onRetry={collection.refresh} />
       ) : null}
       {rated.length ? (
         <Collection
           title="Your rated titles"
-          items={rated}
+          entries={rated}
+          loading={collection.loading}
+          onRetry={collection.refresh}
           icon={<Star size={20} className="text-foreground" />}
         />
       ) : null}
@@ -342,11 +338,15 @@ function Stat({
 
 function Collection({
   title,
-  items,
+  entries,
+  loading,
+  onRetry,
   icon,
 }: {
   title: string;
-  items: MediaTitle[];
+  entries: CollectionEntry[];
+  loading: boolean;
+  onRetry: () => void;
   icon?: React.ReactNode;
 }) {
   return (
@@ -355,7 +355,7 @@ function Collection({
         {icon}
         <h2 className="text-2xl font-semibold text-foreground">{title}</h2>
       </div>
-      <MediaGrid items={items} />
+      <CollectionGrid entries={entries} loading={loading} onRetry={onRetry} />
     </section>
   );
 }
