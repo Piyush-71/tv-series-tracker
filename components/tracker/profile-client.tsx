@@ -18,6 +18,7 @@ import type { CollectionEntry } from "@/types/collection";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { TimezoneSelect } from "@/components/tracker/timezone-select";
+import { WebPushSettings } from "@/components/tracker/web-push-settings";
 import { useTracker } from "@/hooks/use-tracker";
 import { importTrackerData } from "@/lib/tracker";
 
@@ -208,22 +209,10 @@ export function ProfileClient({
             Notifications & reminders
           </h2>
           <p className="mt-2 text-sm text-muted">
-            Browser reminders are evaluated while Cinecount is open. Server
-            delivery will arrive with database sync later.
+            Reminders are sent one day before the saved release. Date-only
+            reminders follow this device’s calendar; exact airtime is not assumed.
           </p>
-          <label className="mt-5 flex items-center justify-between gap-4 rounded-lg border border-border p-4 text-sm text-foreground">
-            Enable browser notifications
-            <input
-              type="checkbox"
-              checked={tracker.data.preferences.browserNotifications}
-              onChange={(event) =>
-                tracker.setPreferences({
-                  browserNotifications: event.target.checked,
-                })
-              }
-              className="h-5 w-5 accent-foreground"
-            />
-          </label>
+          <WebPushSettings />
           <div className="mt-4 grid gap-2">
             {reminders.length ? (
               reminders.map((reminder) => (

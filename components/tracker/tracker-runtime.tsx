@@ -5,9 +5,11 @@ import { useEffect, useEffectEvent, useState } from "react";
 import { reminderTiming } from "@/lib/tracker-reminders";
 import { trackerThemeStorageKey } from "@/lib/tracker";
 import { useTracker } from "@/hooks/use-tracker";
+import { useWebPush } from "./web-push-provider";
 
 export function TrackerRuntime() {
   const tracker = useTracker();
+  const push = useWebPush();
   const [online, setOnline] = useState(true);
   const [dismissed, setDismissed] = useState(false);
   const updateReminderStatus = useEffectEvent(tracker.updateReminderStatus);
@@ -46,7 +48,7 @@ export function TrackerRuntime() {
   }, []);
 
   useEffect(() => {
-    if (!tracker.isReady) return;
+    if (!tracker.isReady || push.mode !== "local") return;
     const deliverDueReminders = () => {
       if (!isCurrentScope()) return;
       const now = new Date();
@@ -102,7 +104,7 @@ export function TrackerRuntime() {
     deliverDueReminders();
     const interval = window.setInterval(deliverDueReminders, 60_000);
     return () => window.clearInterval(interval);
-  }, [tracker.isReady, isCurrentScope, browserNotifications, reminders]);
+  }, [tracker.isReady, isCurrentScope, browserNotifications, reminders, push.mode]);
 
   if (online || dismissed) return null;
 

@@ -1,0 +1,28 @@
+name: Deliver push reminders
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: push-reminder-dispatch
+  cancel-in-progress: false
+
+jobs:
+  dispatch:
+    if: ${{ vars.CINECOUNT_APP_URL != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Dispatch due reminders
+        env:
+          CINECOUNT_APP_URL: ${{ vars.CINECOUNT_APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          test -n "$CRON_SECRET"
+          curl --fail --silent --show-error --max-time 125 \
+            --header "Authorization: Bearer $CRON_SECRET" \
+            "${CINECOUNT_APP_URL%/}/api/cron/push"

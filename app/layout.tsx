@@ -6,6 +6,7 @@ import { Geist } from "next/font/google";
 import { Navbar } from "@/components/layout/navbar";
 import { TrackerProvider } from "@/components/tracker/tracker-provider";
 import { TrackerRuntime } from "@/components/tracker/tracker-runtime";
+import { WebPushProvider } from "@/components/tracker/web-push-provider";
 import { Footer } from "@/components/layout/footer";
 import "./globals.css";
 
@@ -99,18 +100,20 @@ export default function RootLayout({
           }}
         >
           <TrackerProvider>
-            <a
-              href="#main-content"
-              className="fixed left-4 top-4 z-50 -translate-y-24 rounded-full bg-accent px-5 py-3 text-sm font-semibold text-on-accent focus:translate-y-0"
-            >
-              Skip to content
-            </a>
-            <TrackerRuntime />
-            <Navbar />
-            <main id="main-content" tabIndex={-1} className="min-h-[70dvh]">
-              {children}
-            </main>
-            <Footer />
+            <WebPushProvider>
+              <a
+                href="#main-content"
+                className="fixed left-4 top-4 z-50 -translate-y-24 rounded-full bg-accent px-5 py-3 text-sm font-semibold text-on-accent focus:translate-y-0"
+              >
+                Skip to content
+              </a>
+              <TrackerRuntime />
+              <Navbar />
+              <main id="main-content" tabIndex={-1} className="min-h-[70dvh]">
+                {children}
+              </main>
+              <Footer />
+            </WebPushProvider>
           </TrackerProvider>
         </ClerkProvider>
       </body>
