@@ -5,14 +5,15 @@ import { ScheduleCard } from "@/components/schedule/schedule-card";
 import { Button } from "@/components/ui/button";
 import type { CollectionEntry } from "@/types/collection";
 
-export function CollectionGrid({ entries, loading = false, onRemove, onRetry }: {
+export function CollectionGrid({ entries, loading = false, showEpisodes = false, onRemove, onRetry }: {
   entries: CollectionEntry[];
   loading?: boolean;
+  showEpisodes?: boolean;
   onRemove?: (id: string) => void;
   onRetry?: () => void;
 }) {
   const titles = entries.flatMap((entry) => entry.title ? [entry.title] : []);
-  const episodes = entries.flatMap((entry) => entry.episode ? [entry.episode] : []);
+  const episodes = [...new Map(entries.flatMap((entry) => entry.episode && (showEpisodes || !entry.title) ? [[entry.episode.showId, entry.episode] as const] : [])).values()];
   const unresolved = entries.filter((entry) => !entry.title && !entry.episode);
   return (
     <div className="space-y-6" aria-busy={loading}>

@@ -51,7 +51,7 @@ export function WatchlistClient() {
         </Button>
       </div>
       {shareError ? <p role="alert" className="mb-4 text-sm text-danger">{shareError}</p> : null}
-      <CollectionGrid entries={collection.entries} loading={collection.loading} onRemove={watchlist.toggle} onRetry={collection.refresh} />
+      <CollectionGrid entries={collection.entries} loading={collection.loading} showEpisodes onRemove={watchlist.toggle} onRetry={collection.refresh} />
     </div>
   );
 }
