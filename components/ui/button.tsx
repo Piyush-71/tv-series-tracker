@@ -28,7 +28,7 @@ export function Button({
     <button
       type={type}
       className={cn(
-        "inline-flex shrink-0 items-center justify-center gap-2 rounded-full font-semibold transition-colors duration-200 disabled:pointer-events-none disabled:opacity-50",
+        "ui-button inline-flex shrink-0 items-center justify-center gap-2 rounded-full font-semibold transition-colors duration-200 disabled:pointer-events-none disabled:opacity-50",
         variants[variant],
         sizes[size],
         className,
