@@ -18,7 +18,7 @@ export function ScheduleCountdown({
     ["secs", now ? Math.floor((absolute / 1000) % 60) : null],
   ] as const;
   return (
-    <div>
+    <div className={large ? "countdown countdown-large" : "countdown"}>
       <div
         className={large ? "grid grid-cols-4 gap-3" : "grid grid-cols-4 gap-2"}
         role="timer"

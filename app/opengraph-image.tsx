@@ -6,54 +6,51 @@ export const contentType = "image/png";
 
 export default function OpenGraphImage() {
   return new ImageResponse(
-    (
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "center",
+        padding: 72,
+        color: "#faf4ea",
+        background: "#191817",
+      }}
+    >
       <div
         style={{
-          width: "100%",
-          height: "100%",
           display: "flex",
-          flexDirection: "column",
-          justifyContent: "center",
-          padding: 72,
-          color: "#f4f5ef",
-          background:
-            "#101210",
+          fontSize: 30,
+          fontWeight: 700,
+          color: "#ff986b",
         }}
       >
-        <div
-          style={{
-            display: "flex",
-            fontSize: 30,
-            fontWeight: 700,
-            color: "#d5f56a",
-          }}
-        >
-          CINECOUNT · THE EPISODE EDIT
-        </div>
-        <div
-          style={{
-            display: "flex",
-            marginTop: 28,
-            fontSize: 78,
-            lineHeight: 1.05,
-            fontWeight: 700,
-            maxWidth: 1000,
-          }}
-        >
-          Good stories. Worth the wait.
-        </div>
-        <div
-          style={{
-            display: "flex",
-            marginTop: 30,
-            fontSize: 28,
-            color: "#a8afa5",
-          }}
-        >
-          Trending · Upcoming · Airing Soon
-        </div>
+        CINECOUNT · FOR THE LOVE OF STORIES
       </div>
-    ),
+      <div
+        style={{
+          display: "flex",
+          marginTop: 28,
+          fontSize: 78,
+          lineHeight: 1.05,
+          fontWeight: 700,
+          maxWidth: 1000,
+        }}
+      >
+        Stay for the next episode.
+      </div>
+      <div
+        style={{
+          display: "flex",
+          marginTop: 30,
+          fontSize: 28,
+          color: "#bdb2a7",
+        }}
+      >
+        Trending · Upcoming · Airing Soon
+      </div>
+    </div>,
     size,
   );
 }

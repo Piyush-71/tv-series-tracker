@@ -17,7 +17,7 @@ export function MediaCard({
   const watchlist = useWatchlist();
   const saved = watchlist.has(title.id);
   return (
-    <article className="group relative min-w-0">
+    <article className="media-card group relative min-w-0">
       <div className="relative">
         <Link
           href={`/title/${title.slug}`}

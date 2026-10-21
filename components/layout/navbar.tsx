@@ -1,6 +1,7 @@
 "use client";
 import { Show, UserButton } from "@clerk/nextjs";
 import {
+  Sparkles,
   ArrowUpRight,
   Bookmark,
   CalendarDays,
@@ -58,7 +59,7 @@ export function Navbar() {
   }
   return (
     <>
-      <header className="sticky top-0 z-40 border-b border-border bg-background">
+      <header className="site-header sticky top-0 z-40 border-b border-border">
         <nav
           aria-label="Main navigation"
           className="page-shell flex h-20 items-center justify-between gap-4"
@@ -69,10 +70,10 @@ export function Navbar() {
             className="flex shrink-0 items-center gap-2.5"
             aria-label="Cinecount home"
           >
-            <span className="grid h-9 w-9 place-items-center rounded-xl bg-accent text-on-accent">
-              <Clapperboard size={21} aria-hidden="true" />
+            <span className="brand-mark grid h-10 w-10 place-items-center bg-accent text-on-accent">
+              <Sparkles size={24} aria-hidden="true" />
             </span>
-            <span className="text-xl font-semibold tracking-[-0.05em]">
+            <span className="brand-name text-2xl font-bold tracking-[-0.06em]">
               cinecount<span className="text-muted">.</span>
             </span>
           </Link>
@@ -84,7 +85,7 @@ export function Navbar() {
                 prefetch={href === "/my-countdowns" ? false : undefined}
                 aria-current={pathname === href ? "page" : undefined}
                 className={cn(
-                  "flex min-h-11 items-center gap-2 rounded-full px-4 text-sm font-medium transition-colors",
+                  "nav-link flex min-h-11 items-center gap-2 rounded-full px-4 text-sm font-medium transition-colors",
                   pathname === href
                     ? "bg-surface-raised text-foreground"
                     : "text-muted hover:text-foreground",
