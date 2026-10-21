@@ -26,6 +26,7 @@ export type ScheduledEpisode = {
 };
 
 export type ScheduleDashboard = {
+  unavailable?: true;
   trending: ScheduledEpisode[];
   upcoming: ScheduledEpisode[];
   airingSoon: ScheduledEpisode[];
@@ -44,4 +45,3 @@ export type ShowSchedule = {
   premiere?: ScheduledEpisode;
   episodes: ScheduledEpisode[];
 };
-

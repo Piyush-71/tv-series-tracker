@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createScheduleService, type ScheduleSource } from "@/lib/schedule/service";
 import type { ScheduledEpisode } from "@/types/schedule";
 
@@ -82,5 +82,37 @@ describe("schedule module", () => {
     const schedule = createScheduleService(source(items));
 
     await expect(schedule.getFollowable(now)).resolves.toMatchObject([{ id: "next" }, { id: "recent" }]);
+  });
+
+  it("resolves requested saved shows in one source read without dashboard limits", async () => {
+    const list = vi.fn().mockResolvedValue(
+      Array.from({ length: 900 }, (_, index) =>
+        episode({
+          id: `episode-${index}`,
+          showId: String(index),
+          title: `Show ${index}`,
+          airsAt: "2026-10-04T12:00:00.000Z",
+        }),
+      ),
+    );
+    const schedule = createScheduleService({ list });
+    const shows = await schedule.getShows(["899", "1", "899", "missing"], now);
+    expect(shows.map((show) => show.showId)).toEqual(["899", "1"]);
+    expect(shows[0].next?.id).toBe("episode-899");
+    expect(list).toHaveBeenCalledTimes(1);
+  });
+
+  it("propagates source failures rather than reporting missing followed shows", async () => {
+    const schedule = createScheduleService({
+      list: async () => {
+        throw new Error("Schedule unavailable");
+      },
+    });
+    await expect(schedule.getShow("899", now)).rejects.toThrow(
+      "Schedule unavailable",
+    );
+    await expect(schedule.getShows(["899"], now)).rejects.toThrow(
+      "Schedule unavailable",
+    );
   });
 });
