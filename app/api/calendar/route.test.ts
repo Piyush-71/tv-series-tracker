@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { GET } from "@/app/api/calendar/route";
 import { getTitleBySlug } from "@/lib/tmdb/service";
-import { getScheduledShowsByIds } from "@/lib/schedule";
+import { getScheduledShowsByTrackerIds } from "@/lib/schedule";
 
 vi.mock("@/lib/tmdb/service", () => ({ getTitleBySlug: vi.fn() }));
-vi.mock("@/lib/schedule", () => ({ getScheduledShowsByIds: vi.fn() }));
+vi.mock("@/lib/schedule", () => ({ getScheduledShowsByTrackerIds: vi.fn() }));
 vi.mock("@/lib/api", () => ({
   getRequestKey: () => "test",
   publicApiLimiter: { check: () => ({ allowed: true }) },
@@ -37,9 +37,21 @@ beforeEach(() => {
   vi.mocked(getTitleBySlug).mockImplementation(
     async (id) => title(id) as Awaited<ReturnType<typeof getTitleBySlug>>,
   );
-  vi.mocked(getScheduledShowsByIds).mockResolvedValue([]);
+  vi.mocked(getScheduledShowsByTrackerIds).mockResolvedValue([]);
 });
 describe("calendar batches", () => {
+  it.each([false, true])("uses an exact Simkl episode for a TMDB identity even when metadata is absent or failed (%s)", async (failed) => {
+    vi.mocked(getTitleBySlug).mockImplementation(async () => {
+      if (failed) throw new Error("TMDB unavailable");
+      return { ...title("tv-42"), nextEpisode: undefined } as Awaited<ReturnType<typeof getTitleBySlug>>;
+    });
+    const episode = { id: "simkl-next", showId: "77", title: "Known schedule", slug: "known", poster: "/poster.jpg", seasonNumber: 2, episodeNumber: 1, airsAt: "2030-01-02T12:00:00Z", precision: "datetime" as const, kind: "episode" as const, sourceUrl: "https://simkl.com/tv/77" };
+    vi.mocked(getScheduledShowsByTrackerIds).mockResolvedValue([{ id: "tv-42", show: { ...episode, tmdbId: "42", next: episode, episodes: [episode] } }]);
+    const body = await (await GET(request(["tv-42"]))).json();
+    expect(body.results).toMatchObject([{ title: { id: "tv-42" }, episode: { airDate: "2030-01-02T12:00:00Z" } }]);
+    expect(body.failedIds).toEqual([]);
+    expect(body.noEpisodeIds).toEqual([]);
+  });
   it("rejects oversized batches explicitly instead of silently dropping the 26th ID", async () => {
     const response = await GET(
       request(Array.from({ length: 26 }, (_, i) => `tv-${i + 1}`)),
@@ -48,8 +60,8 @@ describe("calendar batches", () => {
     expect(getTitleBySlug).not.toHaveBeenCalled();
   });
   it("includes followed Simkl shows and resolves them in one source lookup", async () => {
-    vi.mocked(getScheduledShowsByIds).mockResolvedValue([
-      {
+    vi.mocked(getScheduledShowsByTrackerIds).mockResolvedValue([
+      { id: "simkl-900", show: {
         showId: "900",
         slug: "show",
         title: "Simkl show",
@@ -68,13 +80,13 @@ describe("calendar batches", () => {
           episodeNumber: 4,
           airsAt: "2030-01-02T12:00:00Z",
         },
-      },
-    ] as Awaited<ReturnType<typeof getScheduledShowsByIds>>);
+      } },
+    ] as Awaited<ReturnType<typeof getScheduledShowsByTrackerIds>>);
     const body = await (await GET(request(["simkl-900", "tv-1"]))).json();
     expect(
       body.results.map((entry: { title: { id: string } }) => entry.title.id),
     ).toEqual(["tv-1", "simkl-900"]);
-    expect(getScheduledShowsByIds).toHaveBeenCalledWith(["900"]);
+    expect(getScheduledShowsByTrackerIds).toHaveBeenCalledWith(["simkl-900", "tv-1"]);
   });
   it("keeps successful entries and distinguishes failures from missing schedules", async () => {
     vi.mocked(getTitleBySlug).mockImplementation(async (id) => {
@@ -94,7 +106,7 @@ describe("calendar batches", () => {
     expect((await GET(request(["tv-1", "bad-id"]))).status).toBe(400);
   });
   it("reports a Simkl outage without losing available TMDB episodes", async () => {
-    vi.mocked(getScheduledShowsByIds).mockRejectedValue(
+    vi.mocked(getScheduledShowsByTrackerIds).mockRejectedValue(
       new Error("Schedule unavailable"),
     );
     const body = await (await GET(request(["simkl-900", "tv-1"]))).json();

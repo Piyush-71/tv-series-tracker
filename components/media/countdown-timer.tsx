@@ -3,6 +3,7 @@ import { CalendarDays, Clock3 } from "lucide-react";
 import {
   getReleasePresentation,
   getTimeLeft,
+  inferReleasePrecision,
   type ReleasePrecision,
 } from "@/lib/release";
 import { useTracker } from "@/hooks/use-tracker";
@@ -24,7 +25,7 @@ export function CountdownTimer({
     : releaseDate;
   const precision =
     titleId && tracker.data.releaseOverrides[titleId]
-      ? "datetime"
+      ? inferReleasePrecision(effectiveDate)
       : releasePrecision;
   const timeZone = tracker.data.preferences.timeZone || "UTC";
   const now = useNow();

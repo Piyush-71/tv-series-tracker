@@ -13,12 +13,12 @@ export function CollectionGrid({ entries, loading = false, showEpisodes = false,
   onRetry?: () => void;
 }) {
   const titles = entries.flatMap((entry) => entry.title ? [entry.title] : []);
-  const episodes = [...new Map(entries.flatMap((entry) => entry.episode && (showEpisodes || !entry.title) ? [[entry.episode.showId, entry.episode] as const] : [])).values()];
+  const episodes = entries.filter((entry) => entry.episode && (showEpisodes || !entry.title));
   const unresolved = entries.filter((entry) => !entry.title && !entry.episode);
   return (
     <div className="space-y-6" aria-busy={loading}>
       {loading ? <p role="status" className="text-sm text-muted">Loading your saved titles…</p> : null}
-      {episodes.length ? <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{episodes.map((episode) => <ScheduleCard key={episode.showId} episode={episode} />)}</div> : null}
+      {episodes.length ? <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{episodes.map((entry) => <ScheduleCard key={entry.id} episode={entry.episode!} savedId={entry.id} />)}</div> : null}
       {titles.length ? <MediaGrid items={titles} /> : null}
       {!loading && unresolved.length ? (
         <div className="space-y-3">

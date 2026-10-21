@@ -19,6 +19,7 @@ export type ScheduleService = {
   getFollowable(now?: Date, limit?: number): Promise<ScheduledEpisode[]>;
   getShow(showId: string, now?: Date): Promise<ShowSchedule | undefined>;
   getShows(showIds: string[], now?: Date): Promise<ShowSchedule[]>;
+  getTrackedShows(ids: string[], now?: Date): Promise<Array<{ id: string; show: ShowSchedule }>>;
 };
 
 const day = 86_400_000;
@@ -124,6 +125,30 @@ export function createScheduleService(source: ScheduleSource): ScheduleService {
       return [...wanted].flatMap((id) => {
         const show = toShowSchedule(id, groups.get(id) ?? [], now);
         return show ? [show] : [];
+      });
+    },
+    async getTrackedShows(ids, now = new Date()) {
+      if (!ids.length) return [];
+      const wanted = new Set(ids);
+      const groups = new Map<string, ScheduledEpisode[]>();
+      for (const item of await source.list()) {
+        if (!wanted.has(`simkl-${item.showId}`) && !wanted.has(`tv-${item.tmdbId}`)) continue;
+        const group = groups.get(item.showId) ?? [];
+        group.push(item);
+        groups.set(item.showId, group);
+      }
+      const shows = [...groups].flatMap(([id, episodes]) => {
+        const show = toShowSchedule(id, episodes, now);
+        return show ? [show] : [];
+      }).sort((a, b) => {
+        if (a.next && b.next) return a.next.airsAt.localeCompare(b.next.airsAt);
+        if (a.next) return -1;
+        if (b.next) return 1;
+        return (b.previous?.airsAt ?? "").localeCompare(a.previous?.airsAt ?? "");
+      });
+      return [...wanted].flatMap((id) => {
+        const show = shows.find((show) => id === `simkl-${show.showId}` || id === `tv-${show.tmdbId}`);
+        return show ? [{ id, show }] : [];
       });
     },
   };

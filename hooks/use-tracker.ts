@@ -4,7 +4,8 @@ import { normalizeTimeZone } from "@/lib/timezone";
 import { useContext, useSyncExternalStore } from "react";
 import { TrackerStoreContext } from "@/components/tracker/tracker-provider";
 import { emptyTrackerSnapshot } from "@/lib/tracker-store";
-import { reconcileReleaseOverride } from "@/lib/tracker-reminders";
+import { getReminderTarget, reconcileReleaseOverride } from "@/lib/tracker-reminders";
+import type { MediaTitle } from "@/types/media";
 import {
   createTrackerData,
   importTrackerData,
@@ -86,6 +87,26 @@ export function useTracker() {
           importTrackerData(JSON.stringify({ ...current, reminders }));
         } else delete reminders[id];
         return { ...current, reminders };
+      });
+    },
+    scheduleReminder(title: MediaTitle, browserNotifications: boolean) {
+      update((current) => {
+        // Permission prompts can outlive an override edit. Resolve the target
+        // inside the active store update, rather than from the opening render.
+        const releaseDate = getReminderTarget(title, current.releaseOverrides[title.id]);
+        if (!releaseDate || current.reminders[title.id]) return current;
+        return {
+          ...current,
+          preferences: { ...current.preferences, browserNotifications },
+          reminders: {
+            ...current.reminders,
+            [title.id]: {
+              id: title.id, title: title.title, releaseDate,
+              originalReleaseDate: getReminderTarget(title),
+              leadMinutes: 1440, createdAt: new Date().toISOString(), status: "scheduled",
+            },
+          },
+        };
       });
     },
     updateReminderStatus(id: string, status: TrackerReminder["status"]) {

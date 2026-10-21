@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { getTitleBySlug } from "@/lib/tmdb/service";
-import { getScheduledShowsByIds } from "@/lib/schedule";
+import { getScheduledShowsByTrackerIds } from "@/lib/schedule";
 import { getRequestKey, publicApiLimiter } from "@/lib/api";
 import type { MediaEpisode } from "@/types/media";
+import type { ShowSchedule } from "@/types/schedule";
 
 type CalendarEntry = {
   href: string;
@@ -44,46 +45,30 @@ export async function GET(request: Request) {
   const failedIds: string[] = [];
   const unresolvedIds: string[] = [];
   const noEpisodeIds: string[] = [];
+  let scheduleFailed = false;
+  const schedules = await getScheduledShowsByTrackerIds(ids).catch(() => {
+    scheduleFailed = true;
+    return [];
+  });
+  const byId = new Map(schedules.map(({ id, show }) => [id, show]));
+  function scheduledEntry(id: string, show: ShowSchedule): CalendarEntry {
+    const next = show.next!;
+    return {
+      href: `/show/${show.showId}/${show.slug}`,
+      title: { id, slug: show.slug, title: show.title, poster: show.poster },
+      episode: {
+        id: next.id, name: `Episode ${next.episodeNumber}`, overview: "",
+        airDate: next.airsAt, seasonNumber: next.seasonNumber,
+        episodeNumber: next.episodeNumber, rating: 0,
+      },
+    };
+  }
   const simklIds = ids.filter((id) => id.startsWith("simkl-"));
-  if (simklIds.length) {
-    try {
-      const shows = await getScheduledShowsByIds(
-        simklIds.map((id) => id.slice(6)),
-      );
-      const byId = new Map(shows.map((show) => [show.showId, show]));
-      for (const id of simklIds) {
-        const show = byId.get(id.slice(6));
-        if (!show) {
-          unresolvedIds.push(id);
-          continue;
-        }
-        if (!show.next) {
-          noEpisodeIds.push(id);
-          continue;
-        }
-        const next = show.next;
-        results.push({
-          href: `/show/${show.showId}/${show.slug}`,
-          title: {
-            id,
-            slug: show.slug,
-            title: show.title,
-            poster: show.poster,
-          },
-          episode: {
-            id: next.id,
-            name: `Episode ${next.episodeNumber}`,
-            overview: "",
-            airDate: next.airsAt,
-            seasonNumber: next.seasonNumber,
-            episodeNumber: next.episodeNumber,
-            rating: 0,
-          },
-        });
-      }
-    } catch {
-      failedIds.push(...simklIds);
-    }
+  for (const id of simklIds) {
+    const show = byId.get(id);
+    if (!show) (scheduleFailed ? failedIds : unresolvedIds).push(id);
+    else if (!show.next) noEpisodeIds.push(id);
+    else results.push(scheduledEntry(id, show));
   }
 
   const tvIds = ids.filter((id) => id.startsWith("tv-"));
@@ -93,6 +78,11 @@ export async function GET(request: Request) {
     Array.from({ length: Math.min(4, tvIds.length) }, async () => {
       while (cursor < tvIds.length) {
         const id = tvIds[cursor++];
+        const show = byId.get(id);
+        if (show?.next) {
+          results.push(scheduledEntry(id, show));
+          continue;
+        }
         try {
           const title = await getTitleBySlug(id);
           if (!title) {
@@ -100,7 +90,7 @@ export async function GET(request: Request) {
             continue;
           }
           if (!title.nextEpisode) {
-            noEpisodeIds.push(id);
+            (scheduleFailed ? failedIds : noEpisodeIds).push(id);
             continue;
           }
           results.push({

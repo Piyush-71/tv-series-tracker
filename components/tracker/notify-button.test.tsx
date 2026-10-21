@@ -7,6 +7,7 @@ import type { MediaTitle } from "@/types/media";
 const state = vi.hoisted(() => ({
   setReminder: vi.fn(),
   setPreferences: vi.fn(),
+  scheduleReminder: vi.fn(),
 }));
 vi.mock("@/hooks/use-tracker", () => ({
   useTracker: () => ({ data: createTrackerData(), isReady: true, ...state }),
@@ -25,10 +26,7 @@ describe("episode reminders", () => {
   it("uses the next episode date rather than the original series premiere", async () => {
     render(<NotifyButton title={title} />);
     fireEvent.click(screen.getByRole("button"));
-    expect(state.setReminder).toHaveBeenCalledWith(
-      expect.objectContaining({ releaseDate: "2099-03-04" }),
-      "tv-42",
-    );
+    expect(state.scheduleReminder).toHaveBeenCalledWith(title, false);
   });
   it("disables reminders with an explanation when no future episode date is known", () => {
     render(<NotifyButton title={{ ...title, nextEpisode: undefined }} />);

@@ -36,6 +36,22 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+it("uses the current override when notification permission resolves later", async () => {
+  let grant!: (permission: NotificationPermission) => void;
+  vi.stubGlobal("Notification", {
+    permission: "default",
+    requestPermission: () => new Promise<NotificationPermission>((resolve) => { grant = resolve; }),
+  });
+  const title = { id: "tv-42", title: "Example", type: "tv", releaseDate: "2010-01-01", nextEpisode: { airDate: "2099-03-04" } } as MediaTitle;
+  const { result } = renderHook(() => useTracker(), {
+    wrapper: ({ children }) => <TrackerProvider><NotifyButton title={title} />{children}</TrackerProvider>,
+  });
+  fireEvent.click(screen.getByRole("button"));
+  act(() => result.current.setReleaseOverride("tv-42", "2099-04-05"));
+  await act(async () => grant("granted"));
+  expect(result.current.data.reminders["tv-42"].releaseDate).toBe("2099-04-05");
+});
+
 describe("account-isolated tracker hook", () => {
   it("keeps account, guest and returning-account state separate", () => {
     const { result, rerender } = renderHook(() => useTracker(), {

@@ -26,3 +26,7 @@ export const getShowSchedule = cache((showId: string) =>
 export const getScheduledShowsByIds = cache((showIds: string[]) =>
   schedule.getShows(showIds, new Date()),
 );
+
+export const getScheduledShowsByTrackerIds = cache((ids: string[]) =>
+  schedule.getTrackedShows(ids, new Date()),
+);

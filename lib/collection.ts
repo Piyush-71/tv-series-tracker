@@ -1,27 +1,26 @@
 import { mediaTitles } from "@/data/media";
-import { getFollowableSchedule, getShowSchedule } from "@/lib/schedule";
-import { getScheduleTrackerId } from "@/lib/schedule/format";
+import { getScheduledShowsByTrackerIds } from "@/lib/schedule";
 import { getTitleBySlug } from "@/lib/tmdb/service";
 import type { CollectionEntry } from "@/types/collection";
 import type { MediaTitle } from "@/types/media";
-import type { ScheduledEpisode, ShowSchedule } from "@/types/schedule";
+import type { ScheduledEpisode } from "@/types/schedule";
 
 export const collectionBatchSize = 25;
 
 type CollectionSource = {
   title(slug: string): Promise<MediaTitle | undefined>;
-  show(id: string): Promise<ShowSchedule | undefined>;
-  schedule(): Promise<ScheduledEpisode[]>;
+  schedule(ids: string[]): Promise<Array<{ id: string; episode: ScheduledEpisode }>>;
 };
 
 /** Resolve identities, never membership in a changing discovery selection. */
 export function createCollectionResolver(source: CollectionSource) {
   return async (ids: string[]): Promise<CollectionEntry[]> => {
     const wanted = [...new Set(ids)];
-    const schedule = wanted.some((id) => /^tv-\d+$/.test(id))
-      ? await source.schedule().catch(() => [])
+    let scheduleFailed = false;
+    const schedule = wanted.some((id) => /^(tv|simkl)-\d+$/.test(id))
+      ? await source.schedule(wanted).catch(() => { scheduleFailed = true; return []; })
       : [];
-    const episodes = new Map(schedule.map((episode) => [getScheduleTrackerId(episode), episode]));
+    const episodes = new Map(schedule.map(({ id, episode }) => [id, episode]));
     const results: CollectionEntry[] = new Array(wanted.length);
     let cursor = 0;
     await Promise.all(Array.from({ length: Math.min(4, wanted.length) }, async () => {
@@ -31,9 +30,8 @@ export function createCollectionResolver(source: CollectionSource) {
         const episode = episodes.get(id);
         try {
           if (/^simkl-\d+$/.test(id)) {
-            const show = await source.show(id.slice(6));
-            const scheduled = show?.next ?? show?.previous ?? show?.premiere;
-            results[index] = scheduled ? { id, status: "ready", episode: scheduled } : { id, status: "missing" };
+            if (episode) { results[index] = { id, status: "ready", episode }; continue; }
+            results[index] = { id, status: scheduleFailed ? "unavailable" : "missing" };
             continue;
           }
           const fixture = mediaTitles.find((title) => title.id === id);
@@ -56,6 +54,8 @@ export function createCollectionResolver(source: CollectionSource) {
 
 export const resolveCollection = createCollectionResolver({
   title: getTitleBySlug,
-  show: getShowSchedule,
-  schedule: getFollowableSchedule,
+  schedule: async (ids) => (await getScheduledShowsByTrackerIds(ids)).flatMap(({ id, show }) => {
+    const episode = show.next ?? show.previous ?? show.premiere;
+    return episode ? [{ id, episode }] : [];
+  }),
 });

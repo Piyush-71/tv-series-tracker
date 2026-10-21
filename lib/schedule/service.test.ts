@@ -22,6 +22,17 @@ function source(items: ScheduledEpisode[]): ScheduleSource {
 }
 
 describe("schedule module", () => {
+  it("resolves both saved aliases outside the former 1000-show selection", async () => {
+    const items = Array.from({ length: 1001 }, (_, index) => episode({
+      id: `episode-${index}`, showId: String(index + 1), tmdbId: String(index + 1),
+      title: `Show ${index + 1}`, airsAt: "2026-10-04T12:00:00Z",
+    }));
+    const schedule = createScheduleService(source(items));
+    const results = await schedule.getTrackedShows(["tv-1001", "simkl-1001"], now);
+    expect(results.map(({ id, show }) => ({ id, next: show.next?.id }))).toEqual([
+      { id: "tv-1001", next: "episode-1000" }, { id: "simkl-1001", next: "episode-1000" },
+    ]);
+  });
   it("builds distinct dashboard lanes from scheduled episodes", async () => {
     const items = [
       episode({ id: "popular-next", showId: "popular", title: "Popular", airsAt: "2026-10-04T12:00:00.000Z", rank: 2 }),

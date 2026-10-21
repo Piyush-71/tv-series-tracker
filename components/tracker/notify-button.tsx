@@ -20,7 +20,6 @@ export function NotifyButton({
 }) {
   const tracker = useTracker();
   const reminder = tracker.data.reminders[title.id];
-  const originalReleaseDate = getReminderTarget(title);
   const releaseDate = getReminderTarget(
     title,
     tracker.data.releaseOverrides[title.id],
@@ -44,19 +43,7 @@ export function NotifyButton({
     if (permission === "default")
       permission = await Notification.requestPermission();
 
-    tracker.setPreferences({ browserNotifications: permission === "granted" });
-    tracker.setReminder(
-      {
-        id: title.id,
-        title: title.title,
-        releaseDate,
-        originalReleaseDate,
-        leadMinutes: 24 * 60,
-        createdAt: new Date().toISOString(),
-        status: "scheduled",
-      },
-      title.id,
-    );
+    tracker.scheduleReminder(title, permission === "granted");
   }
 
   return (

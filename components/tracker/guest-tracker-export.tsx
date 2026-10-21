@@ -10,7 +10,8 @@ export function GuestTrackerExport() {
   const hasData = data.watchlistIds.length || data.watchedTitleIds.length ||
     data.recentlyViewed.length || Object.keys(data.episodeProgress).length ||
     Object.keys(data.ratings).length || Object.keys(data.notes).length ||
-    Object.keys(data.reminders).length;
+    Object.keys(data.reminders).length || Object.keys(data.releaseOverrides).length ||
+    data.searchHistory.length || data.preferences.favoriteGenres.length || data.preferences.services.length;
   if (!hasData) return null;
 
   function download() {
