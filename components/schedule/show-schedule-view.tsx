@@ -21,7 +21,7 @@ export function ShowScheduleView({ show }: { show: ShowSchedule }) {
 
   return (
     <div className="page-shell page-section">
-      <section className="relative mx-auto grid gap-8 rounded-3xl border border-border bg-surface p-6 lg:grid-cols-[240px_1fr] lg:items-center lg:gap-12 lg:p-10">
+      <section className="show-feature relative mx-auto grid gap-8 rounded-3xl border border-border bg-surface p-6 lg:grid-cols-[240px_1fr] lg:items-center lg:gap-12 lg:p-10">
         <div className="relative mx-auto aspect-[2/3] w-full max-w-[260px] overflow-hidden rounded-2xl border border-border bg-surface-raised shadow-2xl">
           <Image
             src={show.poster}

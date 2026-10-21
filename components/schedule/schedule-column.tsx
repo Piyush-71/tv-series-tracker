@@ -15,7 +15,7 @@ export function ScheduleColumn({
 }) {
   const id = `${title.toLowerCase().replaceAll(" ", "-")}-heading`;
   return (
-    <section aria-labelledby={id}>
+    <section className="schedule-column" aria-labelledby={id}>
       <div className="mb-5 flex items-end justify-between gap-2">
         <div>
           <p className="eyebrow text-[10px]">{eyebrow}</p>

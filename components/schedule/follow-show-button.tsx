@@ -16,6 +16,7 @@ export function FollowShowButton({
   return (
     <Button
       size="lg"
+      className="max-w-full whitespace-normal py-3 text-left"
       variant="secondary"
       disabled={watchlist.isReady === false}
       aria-pressed={saved}
@@ -24,9 +25,12 @@ export function FollowShowButton({
       <Bookmark
         aria-hidden="true"
         size={18}
+        className="shrink-0"
         fill={saved ? "currentColor" : "none"}
       />
-      {saved ? "In My Countdowns" : `Add ${title}`}
+      <span className="min-w-0 break-words">
+        {saved ? "In My Countdowns" : `Add ${title}`}
+      </span>
     </Button>
   );
 }

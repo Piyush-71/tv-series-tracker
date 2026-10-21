@@ -32,9 +32,14 @@ export function BrowseCard({
   const { title } = result;
   const saved = watchlist.has(title.id);
   const upcoming = result.date >= calendarDay(new Date(), timeZone);
-  const dateLabel = result.season === null
-    ? upcoming ? "Releases" : "Released"
-    : upcoming ? "Premieres" : "Premiered";
+  const dateLabel =
+    result.season === null
+      ? upcoming
+        ? "Releases"
+        : "Released"
+      : upcoming
+        ? "Premieres"
+        : "Premiered";
   const label =
     result.season === null
       ? "Movie"
@@ -44,7 +49,7 @@ export function BrowseCard({
           ? "New series · Season 1"
           : `Returning · Season ${result.season}`;
   return (
-    <article className="group overflow-hidden rounded-2xl border border-border bg-surface transition hover:border-border">
+    <article className="browse-card group overflow-hidden rounded-2xl border border-border bg-surface transition hover:border-border">
       <Link
         href={`/title/${title.slug}`}
         aria-label={`View ${title.title} details`}
@@ -69,8 +74,7 @@ export function BrowseCard({
           </Link>
         </h3>
         <p className="text-xs text-muted">
-          {dateLabel}{" "}
-          {displayDate(result.date)}
+          {dateLabel} {displayDate(result.date)}
         </p>
         <p className="line-clamp-1 text-xs text-muted">
           {title.genres.join(" · ")}
@@ -78,7 +82,8 @@ export function BrowseCard({
         <p className="line-clamp-1 text-xs text-muted">
           {title.originCountries
             ?.map((country) => regionNames.of(country) || country)
-            .join(" · ") || (result.detailsPending ? "Loading origin…" : "Origin unknown")}
+            .join(" · ") ||
+            (result.detailsPending ? "Loading origin…" : "Origin unknown")}
         </p>
         {result.nextEpisodeDate && (
           <p className="text-xs text-foreground">

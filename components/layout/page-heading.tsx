@@ -10,7 +10,7 @@ export function PageHeading({
   children?: React.ReactNode;
 }) {
   return (
-    <div className="mb-9 flex flex-col justify-between gap-5 border-b border-border pb-8 sm:flex-row sm:items-end">
+    <div className="page-heading mb-9 flex flex-col justify-between gap-5 border-b border-border pb-8 sm:flex-row sm:items-end">
       <div className="min-w-0">
         <p className="eyebrow">{eyebrow}</p>
         <h1 className="page-title break-words">{title}</h1>

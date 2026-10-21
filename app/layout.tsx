@@ -2,7 +2,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import { dark } from "@clerk/themes";
 import type { Metadata } from "next";
 import Script from "next/script";
-import { Geist } from "next/font/google";
+import { Geist, Space_Grotesk } from "next/font/google";
 import { Navbar } from "@/components/layout/navbar";
 import { TrackerProvider } from "@/components/tracker/tracker-provider";
 import { TrackerRuntime } from "@/components/tracker/tracker-runtime";
@@ -13,6 +13,12 @@ import "./globals.css";
 const geist = Geist({
   subsets: ["latin"],
   variable: "--font-geist",
+  display: "swap",
+});
+
+const display = Space_Grotesk({
+  subsets: ["latin"],
+  variable: "--font-display",
   display: "swap",
 });
 
@@ -45,7 +51,7 @@ export default function RootLayout({
       lang="en"
       suppressHydrationWarning
       data-scroll-behavior="smooth"
-      className={`${geist.variable} h-full scroll-smooth antialiased`}
+      className={`${geist.variable} ${display.variable} h-full scroll-smooth antialiased`}
     >
       <body className="min-h-full bg-background text-foreground">
         <Script id="cinecount-theme" strategy="beforeInteractive">
@@ -58,8 +64,8 @@ export default function RootLayout({
           appearance={{
             baseTheme: dark,
             variables: {
-              colorPrimary: "#d5f56a",
-              colorPrimaryForeground: "#182008",
+              colorPrimary: "var(--accent)",
+              colorPrimaryForeground: "var(--on-accent)",
               colorBackground: "var(--surface)",
               colorForeground: "var(--foreground)",
               colorMuted: "var(--surface-raised)",
@@ -68,9 +74,9 @@ export default function RootLayout({
               colorInput: "var(--background)",
               colorInputForeground: "var(--foreground)",
               colorBorder: "var(--border)",
-              colorRing: "#d5f56a",
+              colorRing: "var(--accent)",
               colorDanger: "var(--danger)",
-              colorSuccess: "#34d399",
+              colorSuccess: "var(--accent)",
               colorWarning: "#fbbf24",
               colorModalBackdrop: "#000000",
               borderRadius: "0.75rem",
