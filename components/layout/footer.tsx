@@ -2,8 +2,11 @@ import { ArrowUpRight, Clapperboard } from "lucide-react";
 import Link from "next/link";
 export function Footer() {
   return (
-    <footer className="border-t border-border bg-surface">
+    <footer className="site-footer border-t border-border bg-surface">
       <div className="page-shell py-12">
+        <p className="footer-wordmark" aria-hidden="true">
+          cinecount<span>.</span>
+        </p>
         <div className="flex flex-col justify-between gap-8 sm:flex-row sm:items-center">
           <div>
             <Link
