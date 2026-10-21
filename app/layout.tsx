@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import Script from "next/script";
 import { Geist } from "next/font/google";
 import { Navbar } from "@/components/layout/navbar";
+import { TrackerProvider } from "@/components/tracker/tracker-provider";
 import { TrackerRuntime } from "@/components/tracker/tracker-runtime";
 import { Footer } from "@/components/layout/footer";
 import "./globals.css";
@@ -47,7 +48,7 @@ export default function RootLayout({
     >
       <body className="min-h-full bg-background text-foreground">
         <Script id="cinecount-theme" strategy="beforeInteractive">
-          {`try{const raw=localStorage.getItem('cinecount-tracker-v1');const saved=raw?JSON.parse(raw).preferences?.theme:'system';const light=saved==='light'||(saved!=='dark'&&matchMedia('(prefers-color-scheme: light)').matches);document.documentElement.classList.toggle('light',light);document.documentElement.dataset.theme=saved||'system'}catch{}`}
+          {`try{const saved=localStorage.getItem('cinecount-theme')||'system';const light=saved==='light'||(saved!=='dark'&&matchMedia('(prefers-color-scheme: light)').matches);document.documentElement.classList.toggle('light',light);document.documentElement.dataset.theme=saved||'system'}catch{}`}
         </Script>
         <ClerkProvider
           signInUrl="/login"
@@ -97,18 +98,20 @@ export default function RootLayout({
             },
           }}
         >
-          <a
-            href="#main-content"
-            className="fixed left-4 top-4 z-50 -translate-y-24 rounded-full bg-accent px-5 py-3 text-sm font-semibold text-on-accent focus:translate-y-0"
-          >
-            Skip to content
-          </a>
-          <TrackerRuntime />
-          <Navbar />
-          <main id="main-content" tabIndex={-1} className="min-h-[70dvh]">
-            {children}
-          </main>
-          <Footer />
+          <TrackerProvider>
+            <a
+              href="#main-content"
+              className="fixed left-4 top-4 z-50 -translate-y-24 rounded-full bg-accent px-5 py-3 text-sm font-semibold text-on-accent focus:translate-y-0"
+            >
+              Skip to content
+            </a>
+            <TrackerRuntime />
+            <Navbar />
+            <main id="main-content" tabIndex={-1} className="min-h-[70dvh]">
+              {children}
+            </main>
+            <Footer />
+          </TrackerProvider>
         </ClerkProvider>
       </body>
     </html>

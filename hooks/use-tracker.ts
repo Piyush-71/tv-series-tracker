@@ -1,93 +1,34 @@
 "use client";
 
 import { normalizeTimeZone } from "@/lib/timezone";
-import { useSyncExternalStore } from "react";
+import { useContext, useSyncExternalStore } from "react";
+import { TrackerStoreContext } from "@/components/tracker/tracker-provider";
+import { emptyTrackerSnapshot } from "@/lib/tracker-store";
+import { reconcileReleaseOverride } from "@/lib/tracker-reminders";
 import {
   createTrackerData,
   importTrackerData,
-  legacyWatchlistKey,
+  isEpisodeKey,
   markRecentlyViewed,
   toggleEpisodeWatched,
-  trackerStorageKey,
   type TrackerData,
   type TrackerReminder,
 } from "@/lib/tracker";
 
-const serverSnapshot = createTrackerData();
-let clientSnapshot: TrackerData | null = null;
-const listeners = new Set<() => void>();
-
-function readSnapshot() {
-  if (clientSnapshot) return clientSnapshot;
-
-  const saved = window.localStorage.getItem(trackerStorageKey);
-  if (saved) {
-    try {
-      clientSnapshot = importTrackerData(saved);
-      return clientSnapshot;
-    } catch {
-      window.localStorage.removeItem(trackerStorageKey);
-    }
-  }
-
-  const initial = createTrackerData();
-  initial.preferences.timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-
-  const legacy = window.localStorage.getItem(legacyWatchlistKey);
-  if (legacy) {
-    try {
-      const ids = JSON.parse(legacy) as unknown;
-      if (Array.isArray(ids) && ids.every((id) => typeof id === "string")) initial.watchlistIds = ids;
-    } catch {
-      // A malformed legacy value should not prevent the new tracker from starting.
-    }
-  }
-
-  clientSnapshot = initial;
-  persist(initial);
-  return initial;
-}
-
-function subscribe(listener: () => void) {
-  listeners.add(listener);
-  window.addEventListener("storage", handleStorage);
-  return () => {
-    listeners.delete(listener);
-    if (listeners.size === 0) window.removeEventListener("storage", handleStorage);
-  };
-}
-
-function handleStorage(event: StorageEvent) {
-  if (event.key !== trackerStorageKey || !event.newValue) return;
-  try {
-    clientSnapshot = importTrackerData(event.newValue);
-    emit();
-  } catch {
-    // Ignore invalid data written by another tab.
-  }
-}
-
-function persist(data: TrackerData) {
-  window.localStorage.setItem(trackerStorageKey, JSON.stringify(data));
-  window.localStorage.setItem(legacyWatchlistKey, JSON.stringify(data.watchlistIds));
-}
-
-function emit() {
-  listeners.forEach((listener) => listener());
-}
-
-function update(updater: (current: TrackerData) => TrackerData) {
-  const next = updater(readSnapshot());
-  clientSnapshot = next;
-  persist(next);
-  emit();
-}
-
 export function useTracker() {
-  const data = useSyncExternalStore(subscribe, readSnapshot, () => serverSnapshot);
+  const store = useContext(TrackerStoreContext);
+  if (!store) throw new Error("useTracker must be used within TrackerProvider");
+  const data = useSyncExternalStore(
+    store.subscribe,
+    store.read,
+    () => emptyTrackerSnapshot,
+  );
+  const update = store.update;
 
   return {
     data,
+    isReady: store.isReady,
+    isCurrentScope: store.isActive,
     toggleWatchlist(id: string) {
       update((current) => ({
         ...current,
@@ -105,12 +46,14 @@ export function useTracker() {
       }));
     },
     toggleEpisode(titleId: string, episodeKey: string) {
+      if (!isEpisodeKey(episodeKey)) return;
       update((current) => toggleEpisodeWatched(current, titleId, episodeKey));
     },
     markViewed(id: string) {
       update((current) => markRecentlyViewed(current, id));
     },
     setRating(id: string, rating: number | null) {
+      if (rating !== null && !Number.isFinite(rating)) return;
       update((current) => {
         const ratings = { ...current.ratings };
         if (rating === null) delete ratings[id];
@@ -126,19 +69,22 @@ export function useTracker() {
         return { ...current, notes };
       });
     },
-    setReleaseOverride(id: string, releaseDate: string | null) {
-      update((current) => {
-        const releaseOverrides = { ...current.releaseOverrides };
-        if (releaseDate) releaseOverrides[id] = releaseDate;
-        else delete releaseOverrides[id];
-        return { ...current, releaseOverrides };
-      });
+    setReleaseOverride(
+      id: string,
+      releaseDate: string | null,
+      officialTarget?: string | null,
+    ) {
+      update((current) =>
+        reconcileReleaseOverride(current, id, releaseDate, officialTarget),
+      );
     },
     setReminder(reminder: TrackerReminder | null, id: string) {
       update((current) => {
         const reminders = { ...current.reminders };
-        if (reminder) reminders[id] = reminder;
-        else delete reminders[id];
+        if (reminder) {
+          reminders[id] = reminder;
+          importTrackerData(JSON.stringify({ ...current, reminders }));
+        } else delete reminders[id];
         return { ...current, reminders };
       });
     },
@@ -146,7 +92,10 @@ export function useTracker() {
       update((current) => {
         const reminder = current.reminders[id];
         if (!reminder || reminder.status === status) return current;
-        return { ...current, reminders: { ...current.reminders, [id]: { ...reminder, status } } };
+        return {
+          ...current,
+          reminders: { ...current.reminders, [id]: { ...reminder, status } },
+        };
       });
     },
     addSearch(query: string) {
@@ -154,11 +103,19 @@ export function useTracker() {
       if (!value) return;
       update((current) => ({
         ...current,
-        searchHistory: [value, ...current.searchHistory.filter((item) => item.toLowerCase() !== value.toLowerCase())].slice(0, 10),
+        searchHistory: [
+          value,
+          ...current.searchHistory.filter(
+            (item) => item.toLowerCase() !== value.toLowerCase(),
+          ),
+        ].slice(0, 10),
       }));
     },
     removeSearch(query: string) {
-      update((current) => ({ ...current, searchHistory: current.searchHistory.filter((item) => item !== query) }));
+      update((current) => ({
+        ...current,
+        searchHistory: current.searchHistory.filter((item) => item !== query),
+      }));
     },
     setPreferences(preferences: Partial<TrackerData["preferences"]>) {
       update((current) => ({
@@ -166,16 +123,20 @@ export function useTracker() {
         preferences: {
           ...current.preferences,
           ...preferences,
-          timeZone: normalizeTimeZone(preferences.timeZone ?? current.preferences.timeZone),
+          timeZone: normalizeTimeZone(
+            preferences.timeZone ?? current.preferences.timeZone,
+          ),
         },
       }));
     },
     replaceData(next: TrackerData) {
-      update(() => next);
+      const validated = importTrackerData(JSON.stringify(next));
+      update(() => validated);
     },
     reset() {
       const next = createTrackerData();
-      next.preferences.timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      next.preferences.timeZone =
+        Intl.DateTimeFormat().resolvedOptions().timeZone;
       update(() => next);
     },
   };
