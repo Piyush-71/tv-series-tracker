@@ -15,7 +15,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     "/premieres",
     "/explore",
   ];
-  const episodes = await getScheduleView("airing-soon", 200);
+  const episodes = await getScheduleView("airing-soon", 200).catch(() => []);
   return [
     ...staticRoutes.map((route) => ({
       url: `${baseUrl}${route}`,

@@ -41,4 +41,10 @@ describe("crawler metadata", () => {
     );
     expect(robots().sitemap).toBe("https://cinecount.example/sitemap.xml");
   });
+  it("retains static URLs when the schedule source is unavailable", async () => {
+    vi.mocked(getScheduleView).mockRejectedValue(new Error("Schedule unavailable"));
+    const entries = await sitemap();
+    expect(entries).toHaveLength(8);
+    expect(entries.some((entry) => entry.url === "https://cinecount.example/explore")).toBe(true);
+  });
 });
