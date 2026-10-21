@@ -116,6 +116,7 @@ export function Navbar() {
             </Button>
             <Button
               aria-label={`Theme: ${theme}. Change theme`}
+              disabled={tracker.isReady === false}
               size="icon"
               variant="ghost"
               onClick={toggleTheme}

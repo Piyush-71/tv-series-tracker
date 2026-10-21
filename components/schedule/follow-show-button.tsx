@@ -17,6 +17,7 @@ export function FollowShowButton({
     <Button
       size="lg"
       variant="secondary"
+      disabled={watchlist.isReady === false}
       aria-pressed={saved}
       onClick={() => watchlist.toggle(trackerId)}
     >

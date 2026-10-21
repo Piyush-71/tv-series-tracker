@@ -49,6 +49,7 @@ export function ScheduleCard({ episode, savedId }: { episode: ScheduledEpisode; 
             <Button
               variant="ghost"
               size="icon"
+              disabled={watchlist.isReady === false}
               className="-mr-1 -mt-1"
               onClick={() => watchlist.toggle(trackerId)}
               aria-label={

@@ -50,6 +50,7 @@ export function MediaCard({
         <Button
           size="icon"
           variant="secondary"
+          disabled={watchlist.isReady === false}
           className="absolute bottom-3 right-3 h-11 w-11 border-white/40 bg-black/65 text-white hover:bg-black/85"
           aria-label={
             saved

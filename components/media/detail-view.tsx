@@ -113,6 +113,7 @@ export function DetailView({
                   variant="secondary"
                   className="border-hero-muted/40 bg-hero-text/10 text-hero-text hover:bg-hero-text/20"
                   aria-pressed={saved}
+                  disabled={watchlist.isReady === false}
                   onClick={() => watchlist.toggle(title.id)}
                 >
                   {saved ? (

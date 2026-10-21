@@ -17,7 +17,9 @@ export function PersonalTitleControls({ title }: { title: MediaTitle }) {
     <section
       className="mt-10 rounded-xl border border-border bg-surface p-5"
       aria-labelledby="personal-heading"
+      aria-busy={tracker.isReady === false}
     >
+      <fieldset disabled={tracker.isReady === false} className="contents" aria-labelledby="personal-heading">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h2
@@ -152,6 +154,7 @@ export function PersonalTitleControls({ title }: { title: MediaTitle }) {
           ) : null}
         </div>
       </div>
+      </fieldset>
     </section>
   );
 }

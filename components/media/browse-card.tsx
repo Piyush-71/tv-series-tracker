@@ -103,6 +103,7 @@ export function BrowseCard({
           <Button
             size="icon"
             variant="ghost"
+            disabled={watchlist.isReady === false}
             aria-label={`${saved ? "Unsave" : "Save"} ${title.title}`}
             aria-pressed={saved}
             onClick={() => watchlist.toggle(title.id)}

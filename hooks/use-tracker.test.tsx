@@ -11,6 +11,7 @@ import { TrackerProvider } from "@/components/tracker/tracker-provider";
 import { useTracker } from "@/hooks/use-tracker";
 import { useEffect, useRef } from "react";
 import { NotifyButton } from "@/components/tracker/notify-button";
+import { FollowShowButton } from "@/components/schedule/follow-show-button";
 import { PersonalTitleControls } from "@/components/tracker/personal-title-controls";
 import type { MediaTitle } from "@/types/media";
 import {
@@ -53,6 +54,17 @@ it("uses the current override when notification permission resolves later", asyn
 });
 
 describe("account-isolated tracker hook", () => {
+  it("keeps save controls disabled until their account scope is ready", () => {
+    auth.isLoaded = false;
+    const view = <TrackerProvider><FollowShowButton trackerId="tv-42" title="Early save" /></TrackerProvider>;
+    const { rerender } = render(view);
+    expect(screen.getByRole("button").hasAttribute("disabled")).toBe(true);
+    auth.isLoaded = true;
+    rerender(<TrackerProvider><FollowShowButton trackerId="tv-42" title="Early save" /></TrackerProvider>);
+    expect(screen.getByRole("button").hasAttribute("disabled")).toBe(false);
+    fireEvent.click(screen.getByRole("button"));
+    expect(JSON.parse(localStorage.getItem(getTrackerStorageKey("alice"))!).watchlistIds).toEqual(["tv-42"]);
+  });
   it("keeps account, guest and returning-account state separate", () => {
     const { result, rerender } = renderHook(() => useTracker(), {
       wrapper: TrackerProvider,
