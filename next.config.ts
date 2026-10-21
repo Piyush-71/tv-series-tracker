@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  experimental: {
+    // Restored Turbopack build caches have served outdated global CSS after theme changes.
+    turbopackFileSystemCacheForBuild: false,
+  },
   async headers() {
     return [
       {
