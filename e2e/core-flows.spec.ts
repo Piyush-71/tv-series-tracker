@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { mediaTitles } from "../data/media";
+import { getTrackerStorageKey } from "../lib/tracker";
 
 test("mobile navigation exposes the product routes", async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
@@ -126,7 +127,7 @@ test("saving a show updates all copies and portable tracker data", async ({ page
   await add.click();
   const title = label!.replace(/^Add /, "").replace(/ to My Countdowns$/, "");
   await expect(page.getByRole("button", { name: `Remove ${title} from My Countdowns` }).first()).toHaveAttribute("aria-pressed", "true");
-  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("cinecount-tracker-v1") ?? "{}") as { watchlistIds?: string[] });
+  const stored = await page.evaluate((key) => JSON.parse(localStorage.getItem(key) ?? "{}") as { watchlistIds?: string[] }, getTrackerStorageKey(null));
   expect(stored.watchlistIds?.length).toBe(1);
   await expect(page.getByRole("button", { name: "In My Countdowns" })).toHaveAttribute("aria-pressed", "true");
 });
@@ -156,7 +157,7 @@ test("search contains keyboard focus and restores it on dismissal", async ({ pag
   await trigger.click();
   const dialog = page.getByRole("dialog", { name: "Search titles" });
   await expect(dialog).toBeVisible();
-  const input = dialog.getByLabel("Search titles, genres, or platforms");
+  const input = dialog.getByLabel("Search titles", { exact: true });
   await expect(input).toBeFocused();
   await input.fill("Echoes");
   await expect(dialog.getByRole("status")).toHaveText("1 titles found");

@@ -1,6 +1,14 @@
+import { isTrackerDate, isTrackerTimestamp } from "@/lib/tracker-date";
 import { normalizeTimeZone } from "@/lib/timezone";
 
 export const trackerStorageKey = "cinecount-tracker-v1";
+export const trackerThemeStorageKey = "cinecount-theme";
+
+// Unscoped v1 data belongs only to the guest browser profile, never to an account.
+export function getTrackerStorageKey(userId: string | null) {
+  return `${trackerStorageKey}:${userId === null ? "guest" : `user:${encodeURIComponent(userId)}`}`;
+}
+
 export const legacyWatchlistKey = "cinecount-watchlist";
 
 export type ThemePreference = "dark" | "light" | "system";
@@ -9,6 +17,8 @@ export type TrackerReminder = {
   id: string;
   title: string;
   releaseDate: string;
+  /** Official target to restore when a personal override is removed. Null means unknown. */
+  originalReleaseDate?: string | null;
   leadMinutes: number;
   createdAt: string;
   status: "scheduled" | "delivered" | "missed";
@@ -56,7 +66,11 @@ export function createTrackerData(): TrackerData {
   };
 }
 
-export function toggleEpisodeWatched(data: TrackerData, titleId: string, episodeKey: string): TrackerData {
+export function toggleEpisodeWatched(
+  data: TrackerData,
+  titleId: string,
+  episodeKey: string,
+): TrackerData {
   const watched = data.episodeProgress[titleId] ?? [];
   const next = watched.includes(episodeKey)
     ? watched.filter((key) => key !== episodeKey)
@@ -68,7 +82,11 @@ export function toggleEpisodeWatched(data: TrackerData, titleId: string, episode
   };
 }
 
-export function getTitleProgress(data: TrackerData, titleId: string, total: number) {
+export function getTitleProgress(
+  data: TrackerData,
+  titleId: string,
+  total: number,
+) {
   const watched = data.episodeProgress[titleId]?.length ?? 0;
   return {
     watched,
@@ -77,10 +95,17 @@ export function getTitleProgress(data: TrackerData, titleId: string, total: numb
   };
 }
 
-export function markRecentlyViewed(data: TrackerData, id: string, viewedAt = new Date().toISOString()): TrackerData {
+export function markRecentlyViewed(
+  data: TrackerData,
+  id: string,
+  viewedAt = new Date().toISOString(),
+): TrackerData {
   return {
     ...data,
-    recentlyViewed: [{ id, viewedAt }, ...data.recentlyViewed.filter((item) => item.id !== id)].slice(0, 20),
+    recentlyViewed: [
+      { id, viewedAt },
+      ...data.recentlyViewed.filter((item) => item.id !== id),
+    ].slice(0, 20),
   };
 }
 
@@ -102,15 +127,31 @@ export function importTrackerData(value: string): TrackerData {
 
 export function isTrackerData(value: unknown): value is TrackerData {
   if (!isRecord(value) || value.version !== 1) return false;
-  if (!isStringArray(value.watchlistIds) || !isStringArray(value.watchedTitleIds)) return false;
-  if (!isStringArray(value.searchHistory) || !isViewedArray(value.recentlyViewed)) return false;
-  if (!isStringArrayRecord(value.episodeProgress) || !isNumberRecord(value.ratings)) return false;
-  if (!isStringRecord(value.notes) || !isStringRecord(value.releaseOverrides) || !isReminderRecord(value.reminders)) return false;
+  if (
+    !isStringArray(value.watchlistIds) ||
+    !isStringArray(value.watchedTitleIds)
+  )
+    return false;
+  if (
+    !isStringArray(value.searchHistory) ||
+    !isViewedArray(value.recentlyViewed)
+  )
+    return false;
+  if (!isEpisodeRecord(value.episodeProgress) || !isRatingRecord(value.ratings))
+    return false;
+  if (
+    !isStringRecord(value.notes) ||
+    !isDateRecord(value.releaseOverrides) ||
+    !isReminderRecord(value.reminders)
+  )
+    return false;
 
   const preferences = value.preferences;
   return (
     isRecord(preferences) &&
-    (preferences.theme === "dark" || preferences.theme === "light" || preferences.theme === "system") &&
+    (preferences.theme === "dark" ||
+      preferences.theme === "light" ||
+      preferences.theme === "system") &&
     isStringArray(preferences.favoriteGenres) &&
     isStringArray(preferences.services) &&
     typeof preferences.timeZone === "string" &&
@@ -123,37 +164,84 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isStringArray(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every((item) => typeof item === "string");
+  return (
+    Array.isArray(value) && value.every((item) => typeof item === "string")
+  );
 }
 
 function isViewedArray(value: unknown) {
-  return Array.isArray(value) && value.every((item) => isRecord(item) && typeof item.id === "string" && typeof item.viewedAt === "string");
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (item) =>
+        isRecord(item) &&
+        typeof item.id === "string" &&
+        isTrackerTimestamp(item.viewedAt),
+    )
+  );
 }
 
-function isStringArrayRecord(value: unknown) {
-  return isRecord(value) && Object.values(value).every(isStringArray);
+export function isEpisodeKey(value: string) {
+  return /^s(?:0|[1-9]\d*)e[1-9]\d*$/.test(value);
 }
 
-function isNumberRecord(value: unknown) {
-  return isRecord(value) && Object.values(value).every((item) => typeof item === "number" && Number.isFinite(item));
+function isEpisodeRecord(value: unknown) {
+  return (
+    isRecord(value) &&
+    Object.values(value).every(
+      (keys) =>
+        isStringArray(keys) &&
+        keys.every(isEpisodeKey) &&
+        new Set(keys).size === keys.length,
+    )
+  );
+}
+
+function isDateRecord(value: unknown) {
+  return isRecord(value) && Object.values(value).every(isTrackerDate);
+}
+
+function isRatingRecord(value: unknown) {
+  return (
+    isRecord(value) &&
+    Object.values(value).every(
+      (item) =>
+        typeof item === "number" &&
+        Number.isFinite(item) &&
+        item >= 1 &&
+        item <= 5,
+    )
+  );
 }
 
 function isStringRecord(value: unknown) {
-  return isRecord(value) && Object.values(value).every((item) => typeof item === "string");
+  return (
+    isRecord(value) &&
+    Object.values(value).every((item) => typeof item === "string")
+  );
 }
 
 function isReminderRecord(value: unknown) {
   return (
     isRecord(value) &&
-    Object.values(value).every(
-      (item) =>
+    Object.entries(value).every(
+      ([id, item]) =>
         isRecord(item) &&
         typeof item.id === "string" &&
+        item.id.trim().length > 0 &&
+        item.id === id &&
         typeof item.title === "string" &&
-        typeof item.releaseDate === "string" &&
+        isTrackerDate(item.releaseDate) &&
+        (item.originalReleaseDate === undefined ||
+          item.originalReleaseDate === null ||
+          isTrackerDate(item.originalReleaseDate)) &&
         typeof item.leadMinutes === "number" &&
-        typeof item.createdAt === "string" &&
-        (item.status === "scheduled" || item.status === "delivered" || item.status === "missed"),
+        Number.isSafeInteger(item.leadMinutes) &&
+        item.leadMinutes >= 0 &&
+        isTrackerTimestamp(item.createdAt) &&
+        (item.status === "scheduled" ||
+          item.status === "delivered" ||
+          item.status === "missed"),
     )
   );
 }

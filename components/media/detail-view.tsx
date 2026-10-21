@@ -21,7 +21,7 @@ import { CountdownTimer } from "@/components/media/countdown-timer";
 import { TrailerModal } from "@/components/media/trailer-modal";
 import { GenrePills } from "@/components/media/genre-pills";
 import { CarouselSection } from "@/components/media/carousel-section";
-import { formatReleaseDate } from "@/lib/utils";
+import { formatReleaseDate, formatReleaseYear } from "@/lib/utils";
 import { useWatchlist } from "@/hooks/use-watchlist";
 export function DetailView({
   title,
@@ -92,7 +92,7 @@ export function DetailView({
                     <span className="text-xs">/ 10</span>
                   </span>
                 ) : null}
-                <span>{new Date(title.releaseDate).getFullYear()}</span>
+                <span>{formatReleaseYear(title.releaseDate)}</span>
                 <span>{title.genres.join(" · ")}</span>
               </div>
               <p className="mt-5 text-base leading-7 text-hero-muted">
@@ -113,6 +113,7 @@ export function DetailView({
                   variant="secondary"
                   className="border-hero-muted/40 bg-hero-text/10 text-hero-text hover:bg-hero-text/20"
                   aria-pressed={saved}
+                  disabled={watchlist.isReady === false}
                   onClick={() => watchlist.toggle(title.id)}
                 >
                   {saved ? (

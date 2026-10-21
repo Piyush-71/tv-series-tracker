@@ -3,6 +3,7 @@
 import { CheckCircle2, Circle, Star } from "lucide-react";
 import type { MediaTitle } from "@/types/media";
 import { Button } from "@/components/ui/button";
+import { getReminderTarget } from "@/lib/tracker-reminders";
 import { getReleasePresentation } from "@/lib/release";
 import { useTracker } from "@/hooks/use-tracker";
 
@@ -16,7 +17,9 @@ export function PersonalTitleControls({ title }: { title: MediaTitle }) {
     <section
       className="mt-10 rounded-xl border border-border bg-surface p-5"
       aria-labelledby="personal-heading"
+      aria-busy={tracker.isReady === false}
     >
+      <fieldset disabled={tracker.isReady === false} className="contents" aria-labelledby="personal-heading">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h2
@@ -86,14 +89,19 @@ export function PersonalTitleControls({ title }: { title: MediaTitle }) {
         </label>
         <p className="mt-1 text-xs text-muted">
           Use an official regional date below, or enter a precise time in your
-          device timezone. This changes countdowns only in your browser.
+          device timezone. This updates countdowns and reminders only in your
+          browser.
         </p>
         {title.releaseDates?.length ? (
           <select
             className="mt-3 h-11 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground"
             value={tracker.data.releaseOverrides[title.id] ?? ""}
             onChange={(event) =>
-              tracker.setReleaseOverride(title.id, event.target.value || null)
+              tracker.setReleaseOverride(
+                title.id,
+                event.target.value || null,
+                getReminderTarget(title),
+              )
             }
             aria-label="Select an official release date"
           >
@@ -122,22 +130,31 @@ export function PersonalTitleControls({ title }: { title: MediaTitle }) {
             onChange={(event) =>
               tracker.setReleaseOverride(
                 title.id,
-                event.target.value
+                event.target.value &&
+                  Number.isFinite(new Date(event.target.value).getTime())
                   ? new Date(event.target.value).toISOString()
                   : null,
+                getReminderTarget(title),
               )
             }
           />
           {tracker.data.releaseOverrides[title.id] ? (
             <Button
               variant="ghost"
-              onClick={() => tracker.setReleaseOverride(title.id, null)}
+              onClick={() =>
+                tracker.setReleaseOverride(
+                  title.id,
+                  null,
+                  getReminderTarget(title),
+                )
+              }
             >
               Use official date
             </Button>
           ) : null}
         </div>
       </div>
+      </fieldset>
     </section>
   );
 }

@@ -75,6 +75,7 @@ export function EpisodeTracker({ title }: { title: MediaTitle }) {
         title={title}
         season={season}
         watchedKeys={watchedKeys}
+        disabled={tracker.isReady === false}
         onToggle={(episodeKey) => tracker.toggleEpisode(title.id, episodeKey)}
       />
     </section>
@@ -86,11 +87,13 @@ function SeasonEpisodes({
   season,
   watchedKeys,
   onToggle,
+  disabled,
 }: {
   title: MediaTitle;
   season: number;
   watchedKeys: string[];
   onToggle: (episodeKey: string) => void;
+  disabled: boolean;
 }) {
   const [state, setState] = useState<{
     loading: boolean;
@@ -192,6 +195,7 @@ function SeasonEpisodes({
               variant={watched ? "primary" : "secondary"}
               onClick={() => onToggle(episode.id)}
               aria-pressed={watched}
+              disabled={disabled}
             >
               {watched ? <Check size={17} /> : <Circle size={17} />}
               {watched ? "Watched" : "Mark watched"}

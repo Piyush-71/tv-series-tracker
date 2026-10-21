@@ -1,17 +1,15 @@
 import type { Metadata } from "next";
-import { MediaGrid } from "@/components/media/media-grid";
-import { getAllTitles } from "@/lib/tmdb/service";
+import { SharedCollection } from "@/components/media/shared-collection";
 
 export const metadata: Metadata = { title: "Shared List" };
 
 export default async function SharedListPage({
   searchParams,
 }: {
-  searchParams: Promise<{ ids?: string }>;
+  searchParams: Promise<{ ids?: string | string[] }>;
 }) {
   const { ids = "" } = await searchParams;
-  const wanted = new Set(ids.split(",").filter(Boolean).slice(0, 50));
-  const items = (await getAllTitles()).filter((item) => wanted.has(item.id));
+  const wanted = [...new Set((Array.isArray(ids) ? ids : [ids]).flatMap((value) => value.split(",").filter(Boolean)))];
   return (
     <section className="page-shell page-section">
       <p className="text-xs font-bold uppercase tracking-[0.24em] text-foreground">
@@ -20,13 +18,13 @@ export default async function SharedListPage({
       <h1 className="mt-2 text-4xl font-semibold text-foreground sm:text-6xl">
         A Cinecount list
       </h1>
-      <p className="mt-4 text-muted">{items.length} titles shared with you.</p>
+      <p className="mt-4 text-muted">{wanted.length} {wanted.length === 1 ? "title" : "titles"} shared with you.</p>
       <div className="mt-8">
-        {items.length ? (
-          <MediaGrid items={items} />
+        {wanted.length ? (
+          <SharedCollection ids={wanted} />
         ) : (
           <div className="rounded-xl border border-border bg-surface p-8 text-muted">
-            This list is empty or its titles have left the current catalog.
+            This shared list is empty.
           </div>
         )}
       </div>

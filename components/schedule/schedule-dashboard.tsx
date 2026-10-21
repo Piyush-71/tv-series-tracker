@@ -8,6 +8,25 @@ import { TimezoneStatus } from "@/components/schedule/timezone-status";
 import { getScheduleTrackerId } from "@/lib/schedule/format";
 import type { ScheduleDashboard as Dashboard } from "@/types/schedule";
 export function ScheduleDashboard({ dashboard }: { dashboard: Dashboard }) {
+  if (dashboard.unavailable) {
+    return (
+      <section className="page-shell page-section">
+        <div className="empty-state" role="alert">
+          <h1 className="text-2xl font-semibold">
+            The episode schedule is temporarily unavailable.
+          </h1>
+          <p className="mt-3 text-muted">
+            Please try again to load the latest announced airtimes.
+          </p>
+          <form action="/" method="get" className="mt-5">
+            <button type="submit" className="secondary-link">
+              Try again
+            </button>
+          </form>
+        </div>
+      </section>
+    );
+  }
   const featured =
     dashboard.trending[0] ?? dashboard.airingSoon[0] ?? dashboard.upcoming[0];
   return (

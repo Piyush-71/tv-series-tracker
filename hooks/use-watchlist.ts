@@ -8,6 +8,7 @@ export function useWatchlist() {
 
   return {
     ids,
+    isReady: tracker.isReady,
     has: (id: string) => ids.includes(id),
     toggle: tracker.toggleWatchlist,
   };

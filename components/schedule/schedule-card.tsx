@@ -8,9 +8,9 @@ import { Button } from "@/components/ui/button";
 import { useWatchlist } from "@/hooks/use-watchlist";
 import { getScheduleTrackerId } from "@/lib/schedule/format";
 import type { ScheduledEpisode } from "@/types/schedule";
-export function ScheduleCard({ episode }: { episode: ScheduledEpisode }) {
+export function ScheduleCard({ episode, savedId }: { episode: ScheduledEpisode; savedId?: string }) {
   const watchlist = useWatchlist();
-  const trackerId = getScheduleTrackerId(episode);
+  const trackerId = savedId ?? getScheduleTrackerId(episode);
   const saved = watchlist.has(trackerId);
   const href = `/show/${episode.showId}/${episode.slug}`;
   return (
@@ -49,6 +49,7 @@ export function ScheduleCard({ episode }: { episode: ScheduledEpisode }) {
             <Button
               variant="ghost"
               size="icon"
+              disabled={watchlist.isReady === false}
               className="-mr-1 -mt-1"
               onClick={() => watchlist.toggle(trackerId)}
               aria-label={

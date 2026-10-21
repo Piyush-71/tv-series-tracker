@@ -32,8 +32,10 @@ export function toTmdbSlug(item: TmdbListItem, fallback?: TmdbMediaType) {
 }
 
 export function parseTmdbSlug(slug: string): { mediaType: TmdbMediaType; id: string } | null {
-  const [mediaType, id] = slug.split("-");
-  if ((mediaType === "movie" || mediaType === "tv") && id) return { mediaType, id };
+  const match = /^(movie|tv)-([1-9]\d*)$/.exec(slug);
+  if (match && Number.isSafeInteger(Number(match[2]))) {
+    return { mediaType: match[1] as TmdbMediaType, id: match[2] };
+  }
   return null;
 }
 
@@ -123,7 +125,7 @@ export function toMediaTitle(
   fallbackType?: TmdbMediaType,
 ): MediaTitle {
   const mediaType = toMediaType(item, fallbackType);
-  const releaseDate = item.release_date || item.first_air_date || new Date().toISOString();
+  const releaseDate = item.release_date || item.first_air_date || "";
   const details = "videos" in item || "number_of_seasons" in item ? (item as TmdbDetails) : undefined;
   const usProviders = details?.["watch/providers"]?.results?.US;
 

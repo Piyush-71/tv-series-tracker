@@ -5,6 +5,7 @@ import { ArrowLeft, Bookmark, Clapperboard } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { GuestTrackerExport } from "@/components/tracker/guest-tracker-export";
 export const metadata: Metadata = { title: "Sign In" };
 export default async function LoginPage() {
   const { isAuthenticated } = await auth();
@@ -58,6 +59,7 @@ export default async function LoginPage() {
           Sign in or create an account to make yourself at home. Your watchlist
           stays saved on this device.
         </p>
+        <GuestTrackerExport />
         <SignIn
           routing="hash"
           withSignUp

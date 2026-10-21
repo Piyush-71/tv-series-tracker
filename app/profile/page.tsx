@@ -10,5 +10,5 @@ export const metadata: Metadata = {
 export default async function ProfilePage() {
   const [items, genres] = await Promise.all([getAllTitles(), getGenresFromCatalog()]);
   const services = Array.from(new Set(items.map((item) => item.platform).filter((item) => item !== "TMDB"))).sort();
-  return <ProfileClient items={items} genres={genres} services={services} />;
+  return <ProfileClient genres={genres} services={services} />;
 }

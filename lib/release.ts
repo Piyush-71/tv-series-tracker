@@ -15,7 +15,8 @@ type ReleasePresentationInput = {
 };
 
 export function getTimeLeft(date: string, now = new Date()): TimeLeft {
-  const distance = Math.max(new Date(date).getTime() - now.getTime(), 0);
+  const timestamp = new Date(date).getTime();
+  const distance = Number.isFinite(timestamp) ? Math.max(timestamp - now.getTime(), 0) : 0;
 
   return {
     days: Math.floor(distance / 86_400_000),
@@ -32,6 +33,10 @@ export function getReleasePresentation({
   timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone,
 }: ReleasePresentationInput) {
   const timeZoneLabel = new Intl.DateTimeFormat("en-US", { timeZone }).resolvedOptions().timeZone;
+
+  if (!Number.isFinite(new Date(releaseDate).getTime())) {
+    return { kind: "unknown" as const, showCountdown: false, label: "TBA", timeZoneLabel };
+  }
 
   if (releasePrecision === "date") {
     const formattedDate = formatDateOnly(releaseDate);

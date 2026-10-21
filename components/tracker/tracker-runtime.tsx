@@ -1,19 +1,26 @@
 "use client";
 
 import { WifiOff, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useState } from "react";
+import { reminderTiming } from "@/lib/tracker-reminders";
+import { trackerThemeStorageKey } from "@/lib/tracker";
 import { useTracker } from "@/hooks/use-tracker";
 
 export function TrackerRuntime() {
   const tracker = useTracker();
   const [online, setOnline] = useState(true);
   const [dismissed, setDismissed] = useState(false);
-  const updateReminderStatus = useRef(tracker.updateReminderStatus);
+  const updateReminderStatus = useEffectEvent(tracker.updateReminderStatus);
   const reminders = tracker.data.reminders;
+  const isCurrentScope = tracker.isCurrentScope;
   const browserNotifications = tracker.data.preferences.browserNotifications;
 
   useEffect(() => {
+    if (!tracker.isReady) return;
     const preference = tracker.data.preferences.theme;
+    try {
+      localStorage.setItem(trackerThemeStorageKey, preference);
+    } catch {}
     const media = window.matchMedia("(prefers-color-scheme: light)");
     const apply = () => {
       document.documentElement.classList.toggle(
@@ -25,7 +32,7 @@ export function TrackerRuntime() {
     apply();
     media.addEventListener("change", apply);
     return () => media.removeEventListener("change", apply);
-  }, [tracker.data.preferences.theme]);
+  }, [tracker.isReady, tracker.data.preferences.theme]);
 
   useEffect(() => {
     const update = () => setOnline(navigator.onLine);
@@ -39,16 +46,16 @@ export function TrackerRuntime() {
   }, []);
 
   useEffect(() => {
+    if (!tracker.isReady) return;
     const deliverDueReminders = () => {
-      const now = Date.now();
+      if (!isCurrentScope()) return;
+      const now = new Date();
       Object.values(reminders).forEach((reminder) => {
         if (reminder.status !== "scheduled") return;
-        const releaseAt = new Date(reminder.releaseDate).getTime();
-        const notifyAt = releaseAt - reminder.leadMinutes * 60_000;
-        if (!Number.isFinite(releaseAt) || now < notifyAt) return;
-
-        if (now > releaseAt) {
-          updateReminderStatus.current(reminder.id, "missed");
+        const timing = reminderTiming(reminder, now);
+        if (timing === "pending") return;
+        if (timing === "missed") {
+          updateReminderStatus(reminder.id, "missed");
           return;
         }
 
@@ -58,11 +65,18 @@ export function TrackerRuntime() {
           Notification.permission === "granted"
         ) {
           try {
-            new Notification(`${reminder.title} is nearly here`, {
-              body: "Your Cinecount release reminder is due.",
-              icon: "/favicon.ico",
-            });
-            updateReminderStatus.current(reminder.id, "delivered");
+            new Notification(
+              reminder.releaseDate.includes("T")
+                ? `${reminder.title} is nearly here`
+                : `${reminder.title} is scheduled for ${reminder.releaseDate}`,
+              {
+                body: reminder.releaseDate.includes("T")
+                  ? "Your Cinecount release reminder is due."
+                  : "Date-only schedule. Exact airtime has not been announced.",
+                icon: "/favicon.ico",
+              },
+            );
+            updateReminderStatus(reminder.id, "delivered");
             void fetch("/api/telemetry", {
               method: "POST",
               headers: { "content-type": "application/json" },
@@ -88,7 +102,7 @@ export function TrackerRuntime() {
     deliverDueReminders();
     const interval = window.setInterval(deliverDueReminders, 60_000);
     return () => window.clearInterval(interval);
-  }, [browserNotifications, reminders]);
+  }, [tracker.isReady, isCurrentScope, browserNotifications, reminders]);
 
   if (online || dismissed) return null;
 

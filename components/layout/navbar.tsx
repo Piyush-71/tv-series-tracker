@@ -44,12 +44,13 @@ export function Navbar() {
       if (event.key === "Escape") setMenuOpen(false);
       if ((event.metaKey || event.ctrlKey) && event.key === "k") {
         event.preventDefault();
+        if (tracker.isReady === false) return;
         setSearchOpen((value) => !value);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [tracker.isReady]);
   function toggleTheme() {
     tracker.setPreferences({
       theme: theme === "dark" ? "light" : theme === "light" ? "system" : "dark",
@@ -101,6 +102,7 @@ export function Navbar() {
           <div className="flex items-center gap-1 sm:gap-2">
             <Button
               aria-label="Open search"
+              disabled={tracker.isReady === false}
               variant="ghost"
               onClick={() => {
                 setMenuOpen(false);
@@ -116,6 +118,7 @@ export function Navbar() {
             </Button>
             <Button
               aria-label={`Theme: ${theme}. Change theme`}
+              disabled={tracker.isReady === false}
               size="icon"
               variant="ghost"
               onClick={toggleTheme}
@@ -145,6 +148,7 @@ export function Navbar() {
             </Show>
             <Button
               aria-label={menuOpen ? "Close menu" : "Open menu"}
+              disabled={tracker.isReady === false}
               aria-expanded={menuOpen}
               aria-controls="mobile-navigation"
               size="icon"

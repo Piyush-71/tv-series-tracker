@@ -3,6 +3,14 @@ import { getReleasePresentation, getTimeLeft } from "@/lib/release";
 import { formatReleaseDate } from "@/lib/utils";
 
 describe("release presentation", () => {
+  it.each(["", "not-a-date"])("shows TBA without a countdown for unknown release %s", (releaseDate) => {
+    expect(getReleasePresentation({ releaseDate, timeZone: "UTC" })).toMatchObject({
+      kind: "unknown", showCountdown: false, label: "TBA",
+    });
+    expect(formatReleaseDate(releaseDate)).toBe("TBA");
+    expect(getTimeLeft(releaseDate)).toEqual({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+  });
+
   it("does not invent a precise countdown for a date-only release", () => {
     expect(
       getReleasePresentation({

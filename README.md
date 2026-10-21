@@ -5,7 +5,7 @@ Cinecount is a schedule-first TV discovery and personal tracking application. It
 ## Product capabilities
 
 - A schedule dashboard for trending episodes, series premieres, season premieres, soon-to-air episodes, and recently aired episodes
-- Exact episode airtimes powered by Simkl's public TV calendar, with a bundled offline fallback schedule
+- Exact episode airtimes powered by Simkl's public TV calendar, with an explicit unavailable state during source outages
 - Shared live countdown clock and browser-local timezone selection for schedule airtimes and countdown labels (defaults to the device timezone)
 - Trending and upcoming release discovery powered by TMDB, with a built-in fallback catalog
 - Search, category pages, title details, trailers, cast, streaming providers, and recommendations
@@ -14,7 +14,7 @@ Cinecount is a schedule-first TV discovery and personal tracking application. It
 - Honest release displays: exact Simkl airtimes receive live countdowns, while TMDB date-only data stays labeled as a date
 - User-selectable regional dates, custom local release times, and visible timezone information
 - Clerk authentication for private watchlist and profile routes
-- Browser-local watchlists, watched history, recently viewed titles, ratings, private notes, and preferences
+- Account-isolated browser-local watchlists, watched history, recently viewed titles, ratings, private notes, and preferences
 - Season/episode progress and a next-episode calendar for saved series
 - Browser reminders while Cinecount is open, with delivery status recorded locally
 - Shareable watchlist links plus JSON import/export
@@ -77,11 +77,13 @@ npx playwright install chromium
 
 ## Architecture
 
-`app/` contains server-rendered routes and JSON route handlers. Schedule reads are coordinated through the `ScheduleService` interface in `lib/schedule/service.ts`; `simkl.ts` maps and caches the public calendar and falls back to a bundled schedule if the upstream feed is unavailable. Catalog reads remain coordinated by `lib/tmdb/service.ts`, while `client.ts` owns TMDB authentication, retry behavior, and Next.js revalidation. `mapper.ts` converts TMDB response shapes into the application’s `MediaTitle` domain model.
+`app/` contains server-rendered routes and JSON route handlers. Schedule reads are coordinated through the `ScheduleService` interface in `lib/schedule/service.ts`; `simkl.ts` maps and compresses the full public calendar for caching. Source failures produce an unavailable/retry state rather than invented episodes. Catalog reads remain coordinated by `lib/tmdb/service.ts`, while `client.ts` owns TMDB authentication, retry behavior, and Next.js revalidation. `mapper.ts` converts TMDB response shapes into the application’s `MediaTitle` domain model. Unknown release dates remain empty and render TBA; temporary metadata failures reach the retry boundary instead of becoming missing-title pages.
 
 The schedule UI uses one shared external-store clock from `hooks/use-now.ts`, so a dashboard full of countdowns creates one timer rather than one interval per card.
 
-Interactive tracking lives behind `useTracker`. The hook exposes one synchronized external store backed by the versioned `cinecount-tracker-v1` local-storage document. It also migrates the original `cinecount-watchlist` value. Pure tracker behavior is kept in `lib/tracker.ts` so it can later sit behind a database adapter without changing the UI vocabulary.
+Interactive tracking lives behind `useTracker` and an auth-scoped `TrackerProvider`. Storage uses `cinecount-tracker-v1:guest` or `cinecount-tracker-v1:user:<encoded Clerk ID>`. Auth loading blocks writes and account changes retire the previous store. Original unscoped tracker and watchlist documents stay guest-only. The sign-in page offers a guest backup; importing that backup into a selected account is explicit. Pure validation and reminder behavior live in `lib/tracker.ts` and `lib/tracker-reminders.ts`.
+
+Saved collections resolve each stored identity through `lib/collection.ts` and bounded `/api/collection` batches, independently of discovery selections. Failed or missing lookups remain visible and retryable. The calendar also processes every saved TV/Simkl identity in batches and prefers exact schedule data when available. Configure `NEXT_PUBLIC_APP_URL` with the canonical HTTPS origin to emit sitemap URLs; unknown production origins and unsupported modification timestamps are omitted.
 
 The principal routes are:
 
@@ -102,6 +104,7 @@ The principal routes are:
 | `/api/titles` | Validated, rate-limited discovery API |
 | `/api/search` | Validated, rate-limited search API |
 | `/api/calendar` | Next episodes for a bounded list of title IDs |
+| `/api/collection` | Resolve saved TV, movie, and Simkl identities without discovery-catalog cutoffs |
 
 ## Data and privacy
 

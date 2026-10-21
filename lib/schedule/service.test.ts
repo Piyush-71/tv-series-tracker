@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createScheduleService, type ScheduleSource } from "@/lib/schedule/service";
 import type { ScheduledEpisode } from "@/types/schedule";
 
@@ -22,6 +22,17 @@ function source(items: ScheduledEpisode[]): ScheduleSource {
 }
 
 describe("schedule module", () => {
+  it("resolves both saved aliases outside the former 1000-show selection", async () => {
+    const items = Array.from({ length: 1001 }, (_, index) => episode({
+      id: `episode-${index}`, showId: String(index + 1), tmdbId: String(index + 1),
+      title: `Show ${index + 1}`, airsAt: "2026-10-04T12:00:00Z",
+    }));
+    const schedule = createScheduleService(source(items));
+    const results = await schedule.getTrackedShows(["tv-1001", "simkl-1001"], now);
+    expect(results.map(({ id, show }) => ({ id, next: show.next?.id }))).toEqual([
+      { id: "tv-1001", next: "episode-1000" }, { id: "simkl-1001", next: "episode-1000" },
+    ]);
+  });
   it("builds distinct dashboard lanes from scheduled episodes", async () => {
     const items = [
       episode({ id: "popular-next", showId: "popular", title: "Popular", airsAt: "2026-10-04T12:00:00.000Z", rank: 2 }),
@@ -82,5 +93,37 @@ describe("schedule module", () => {
     const schedule = createScheduleService(source(items));
 
     await expect(schedule.getFollowable(now)).resolves.toMatchObject([{ id: "next" }, { id: "recent" }]);
+  });
+
+  it("resolves requested saved shows in one source read without dashboard limits", async () => {
+    const list = vi.fn().mockResolvedValue(
+      Array.from({ length: 900 }, (_, index) =>
+        episode({
+          id: `episode-${index}`,
+          showId: String(index),
+          title: `Show ${index}`,
+          airsAt: "2026-10-04T12:00:00.000Z",
+        }),
+      ),
+    );
+    const schedule = createScheduleService({ list });
+    const shows = await schedule.getShows(["899", "1", "899", "missing"], now);
+    expect(shows.map((show) => show.showId)).toEqual(["899", "1"]);
+    expect(shows[0].next?.id).toBe("episode-899");
+    expect(list).toHaveBeenCalledTimes(1);
+  });
+
+  it("propagates source failures rather than reporting missing followed shows", async () => {
+    const schedule = createScheduleService({
+      list: async () => {
+        throw new Error("Schedule unavailable");
+      },
+    });
+    await expect(schedule.getShow("899", now)).rejects.toThrow(
+      "Schedule unavailable",
+    );
+    await expect(schedule.getShows(["899"], now)).rejects.toThrow(
+      "Schedule unavailable",
+    );
   });
 });

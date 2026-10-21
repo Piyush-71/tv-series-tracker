@@ -1,4 +1,4 @@
-import { getFallbackSchedule } from "@/lib/schedule/fallback";
+import { gzipSync, gunzipSync } from "node:zlib";
 import type { ScheduleSource } from "@/lib/schedule/service";
 import type { ScheduleKind, ScheduledEpisode } from "@/types/schedule";
 import { unstable_cache } from "next/cache";
@@ -16,8 +16,21 @@ type SimklCalendarItem = {
   episode?: { season?: unknown; episode?: unknown };
 };
 
+// The full feed exceeds Next's 2 MB data-cache entry limit. Compress the
+// server-only cache value rather than dropping shows from followed collections.
+const loadCachedCalendar = unstable_cache(
+  async () => gzipSync(JSON.stringify(await loadCalendar())).toString("base64"),
+  ["simkl-tv-calendar-full-v2"],
+  { revalidate: 10_800, tags: ["tv-schedule"] },
+);
+
 export const simklScheduleSource: ScheduleSource = {
-  list: unstable_cache(loadCalendar, ["simkl-tv-calendar-compact-v1"], { revalidate: 10_800, tags: ["tv-schedule"] }),
+  async list() {
+    const compressed = await loadCachedCalendar();
+    return JSON.parse(
+      gunzipSync(Buffer.from(compressed, "base64")).toString(),
+    ) as ScheduledEpisode[];
+  },
 };
 
 async function loadCalendar() {
@@ -27,21 +40,35 @@ async function loadCalendar() {
       headers: { accept: "application/json" },
       signal: AbortSignal.timeout(8_000),
     });
-    if (!response.ok) throw new Error(`Simkl calendar responded with ${response.status}`);
+    if (!response.ok)
+      throw new Error(`Simkl calendar responded with ${response.status}`);
 
     const value = (await response.json()) as unknown;
-    if (!Array.isArray(value)) throw new Error("Simkl calendar returned an invalid document");
+    if (!Array.isArray(value))
+      throw new Error("Simkl calendar returned an invalid document");
 
-    const items = value.map(toScheduledEpisode).filter((item): item is ScheduledEpisode => Boolean(item));
-    if (!items.length) throw new Error("Simkl calendar contained no usable episodes");
-    return compactSchedule(items);
+    const items = value
+      .map(toScheduledEpisode)
+      .filter((item): item is ScheduledEpisode => Boolean(item));
+    if (value.length && !items.length)
+      throw new Error("Simkl calendar contained no usable episodes");
+    return items;
   } catch (error) {
-    console.error(JSON.stringify({ event: "schedule.simkl_failed", error: String(error) }));
-    return getFallbackSchedule();
+    console.error(
+      JSON.stringify({ event: "schedule.simkl_failed", error: String(error) }),
+    );
+    // Reject failed reads so neither a fictional schedule nor an empty outage is
+    // cached as successful live data. Pages use the existing retry boundary.
+    throw new Error(
+      "The episode schedule is temporarily unavailable. Please try again.",
+      { cause: error },
+    );
   }
 }
 
-function toScheduledEpisode(value: SimklCalendarItem): ScheduledEpisode | undefined {
+function toScheduledEpisode(
+  value: SimklCalendarItem,
+): ScheduledEpisode | undefined {
   if (
     typeof value.title !== "string" ||
     typeof value.date !== "string" ||
@@ -60,17 +87,22 @@ function toScheduledEpisode(value: SimklCalendarItem): ScheduledEpisode | undefi
   const seasonNumber = value.episode.season;
   const episodeNumber = value.episode.episode;
   const showId = String(value.ids.simkl_id);
-  const rank = typeof value.rank === "number" && value.rank > 0 ? value.rank : undefined;
+  const rank =
+    typeof value.rank === "number" && value.rank > 0 ? value.rank : undefined;
   const ratingValue = value.ratings?.simkl?.rating;
   const rating = typeof ratingValue === "number" ? ratingValue : undefined;
-  const poster = typeof value.poster === "string"
-    ? `https://simkl.in/posters/${value.poster}_m.jpg`
-    : "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=600&q=80";
+  const poster =
+    typeof value.poster === "string"
+      ? `https://simkl.in/posters/${value.poster}_m.jpg`
+      : "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=600&q=80";
 
   return {
     id: `simkl-${showId}-s${seasonNumber}e${episodeNumber}-${airsAt.getTime()}`,
     showId,
-    tmdbId: typeof value.ids.tmdb === "string" && value.ids.tmdb ? value.ids.tmdb : undefined,
+    tmdbId:
+      typeof value.ids.tmdb === "string" && value.ids.tmdb
+        ? value.ids.tmdb
+        : undefined,
     title: value.title,
     slug: value.ids.slug,
     poster,
@@ -89,32 +121,4 @@ function getKind(seasonNumber: number, episodeNumber: number): ScheduleKind {
   if (seasonNumber === 1 && episodeNumber === 1) return "series-premiere";
   if (episodeNumber === 1) return "season-premiere";
   return "episode";
-}
-
-function compactSchedule(items: ScheduledEpisode[]) {
-  const now = Date.now();
-  const future = items.filter((item) => new Date(item.airsAt).getTime() >= now);
-  const past = items.filter((item) => new Date(item.airsAt).getTime() < now);
-  const selectedShows = new Set<string>();
-
-  addShows(selectedShows, future.toSorted(byAirtime), 220);
-  addShows(selectedShows, future.filter((item) => item.rank).toSorted((a, b) => (a.rank ?? 999_999) - (b.rank ?? 999_999)), 100);
-  addShows(selectedShows, future.filter((item) => item.kind !== "episode").toSorted(byAirtime), 150);
-  addShows(selectedShows, past.toSorted((a, b) => byAirtime(b, a)), 150);
-
-  return items.filter((item) => selectedShows.has(item.showId));
-}
-
-function addShows(target: Set<string>, items: ScheduledEpisode[], limit: number) {
-  let added = 0;
-  for (const item of items) {
-    if (target.has(item.showId)) continue;
-    target.add(item.showId);
-    added += 1;
-    if (added >= limit) break;
-  }
-}
-
-function byAirtime(a: ScheduledEpisode, b: ScheduledEpisode) {
-  return new Date(a.airsAt).getTime() - new Date(b.airsAt).getTime();
 }
