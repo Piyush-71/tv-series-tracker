@@ -88,6 +88,7 @@ export function MediaCard({
           ) : null}
         </div>
         <p className="mt-1.5 text-xs leading-5 text-muted">
+          {title.source === "mydramalist" ? `${title.releaseYear ?? "Year TBA"} · ${title.originCountries?.join(" / ") || "Asian drama"} · ` : ""}
           {title.genres.slice(0, 2).join(" · ") || "Explore this title"}
         </p>
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">

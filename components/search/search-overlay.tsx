@@ -25,6 +25,7 @@ export function SearchOverlay({
     key: string;
     results: MediaTitle[];
     error: boolean;
+    partial?: boolean;
   } | null>(null);
   const debounced = useDebounce(query);
   const requestKey = `${debounced}:${retry}`;
@@ -36,10 +37,10 @@ export function SearchOverlay({
     })
       .then((response) => {
         if (!response.ok) throw new Error("Search failed");
-        return response.json() as Promise<{ results: MediaTitle[] }>;
+        return response.json() as Promise<{ results: MediaTitle[]; partial?: boolean }>;
       })
       .then((response) =>
-        setData({ key: requestKey, results: response.results, error: false }),
+        setData({ key: requestKey, results: response.results, error: false, partial: response.partial }),
       )
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === "AbortError")
@@ -99,6 +100,7 @@ export function SearchOverlay({
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Enter a movie or series title"
+            maxLength={100}
             className="pl-12"
           />
         </div>
@@ -172,6 +174,11 @@ export function SearchOverlay({
             See all results <ArrowUpRight size={14} aria-hidden="true" />
           </Link>
         </div>
+        {!loading && data?.partial ? (
+          <p role="status" className="mb-4 text-xs leading-5 text-muted">
+            Some results are temporarily unavailable. Showing titles from the available source.
+          </p>
+        ) : null}
         {loading ? (
           <div className="space-y-3" aria-hidden="true">
             {[0, 1, 2].map((i) => (
@@ -217,7 +224,9 @@ export function SearchOverlay({
                       : item.type === "movie"
                         ? "Movie"
                         : item.type}{" "}
-                    · {item.genres.slice(0, 2).join(" / ")}
+                    · {item.releaseYear ?? (item.releaseDate.slice(0, 4) || "Year TBA")}
+                    {item.originCountries?.length ? ` · ${item.originCountries.join(" / ")}` : ""}
+                    {item.source === "mydramalist" ? " · MyDramaList" : ""}
                   </p>
                 </div>
                 <ArrowUpRight

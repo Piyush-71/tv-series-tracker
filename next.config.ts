@@ -38,6 +38,10 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: "https",
+        hostname: "i.mydramalist.com",
+      },
+      {
+        protocol: "https",
         hostname: "simkl.in",
         pathname: "/posters/**",
       },

@@ -2,10 +2,10 @@ import { expect, it, vi } from "vitest";
 import { mediaTitles } from "@/data/media";
 import { createCollectionResolver, resolveCollection } from "./collection";
 import { getScheduledShowsByTrackerIds } from "@/lib/schedule";
-import { getTitleBySlug } from "@/lib/tmdb/service";
+import { getTitleBySlug } from "@/lib/catalog";
 
 vi.mock("@/lib/schedule", () => ({ getScheduledShowsByTrackerIds: vi.fn() }));
-vi.mock("@/lib/tmdb/service", () => ({ getTitleBySlug: vi.fn() }));
+vi.mock("@/lib/catalog", () => ({ getTitleBySlug: vi.fn() }));
 
 it("resolves every requested ID rather than intersecting the discovery catalog or taking 50", async () => {
   const title = vi.fn(async (id: string) => ({ ...mediaTitles[0], id, slug: id }));
@@ -24,6 +24,17 @@ it("retains missing, failed, and unsupported saved identities with distinct stat
   expect(await resolve(["tv-1", "tv-2", "unknown-id"])).toEqual([
     { id: "tv-1", status: "missing" }, { id: "tv-2", status: "unavailable" }, { id: "unknown-id", status: "unsupported" },
   ]);
+});
+
+it("resolves saved MDL slugs and preserves them during an outage without changing existing TMDB IDs", async () => {
+  const id = "mdl-729705-hidden-love";
+  const resolve = createCollectionResolver({
+    title: async (slug) => ({ ...mediaTitles[0], id: slug, slug }),
+    schedule: vi.fn(async () => []),
+  });
+  expect((await resolve(["tv-42", id])).map((entry) => entry.title?.id)).toEqual(["tv-42", id]);
+  const unavailable = createCollectionResolver({ title: async () => { throw new Error("upstream timeout"); }, schedule: vi.fn() });
+  expect(await unavailable([id])).toEqual([{ id, status: "unavailable" }]);
 });
 
 it("resolves a followed Simkl show directly, outside the selected schedule", async () => {

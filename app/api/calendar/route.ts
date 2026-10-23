@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { getTitleBySlug } from "@/lib/tmdb/service";
+import { getSeasonEpisodes, getTitleBySlug } from "@/lib/catalog";
+import { parseMdlSlug } from "@/lib/kuryana/identity";
 import { getScheduledShowsByTrackerIds } from "@/lib/schedule";
 import { getRequestKey, publicApiLimiter } from "@/lib/api";
 import type { MediaEpisode } from "@/types/media";
@@ -28,13 +29,13 @@ export async function GET(request: Request) {
   const ids = [...new Set(raw ? raw.split(",") : [])];
   if (
     ids.length > 25 ||
-    ids.some((id) => !/^(tv|simkl)-[1-9]\d{0,14}$/.test(id))
+    ids.some((id) => !/^(tv|simkl)-[1-9]\d{0,14}$/.test(id) && !parseMdlSlug(id))
   ) {
     return NextResponse.json(
       {
         error: {
           code: "INVALID_IDS",
-          message: "Send at most 25 TV or Simkl IDs per calendar batch.",
+          message: "Send at most 25 TV, Simkl, or MyDramaList IDs per calendar batch.",
         },
       },
       { status: 400 },
@@ -46,7 +47,8 @@ export async function GET(request: Request) {
   const unresolvedIds: string[] = [];
   const noEpisodeIds: string[] = [];
   let scheduleFailed = false;
-  const schedules = await getScheduledShowsByTrackerIds(ids).catch(() => {
+  const scheduleIds = ids.filter((id) => !parseMdlSlug(id));
+  const schedules = await (scheduleIds.length ? getScheduledShowsByTrackerIds(scheduleIds) : Promise.resolve([])).catch(() => {
     scheduleFailed = true;
     return [];
   });
@@ -71,7 +73,7 @@ export async function GET(request: Request) {
     else results.push(scheduledEntry(id, show));
   }
 
-  const tvIds = ids.filter((id) => id.startsWith("tv-"));
+  const tvIds = ids.filter((id) => id.startsWith("tv-") || parseMdlSlug(id));
   let cursor = 0;
   // Avoid a 25-way fan-out: title details may themselves make several requests.
   await Promise.all(
@@ -89,8 +91,12 @@ export async function GET(request: Request) {
             unresolvedIds.push(id);
             continue;
           }
-          if (!title.nextEpisode) {
-            (scheduleFailed ? failedIds : noEpisodeIds).push(id);
+          // A failed MDL episode request is unavailable, never evidence of no episode.
+          const nextEpisode = parseMdlSlug(id)
+            ? title.type === "tv" ? (await getSeasonEpisodes(id, 1)).find((episode) => episode.airDate && episode.airDate >= new Date().toISOString().slice(0, 10)) : undefined
+            : title.nextEpisode;
+          if (!nextEpisode) {
+            (scheduleFailed && !parseMdlSlug(id) ? failedIds : noEpisodeIds).push(id);
             continue;
           }
           results.push({
@@ -101,7 +107,7 @@ export async function GET(request: Request) {
               title: title.title,
               poster: title.poster,
             },
-            episode: title.nextEpisode,
+            episode: nextEpisode,
           });
         } catch {
           failedIds.push(id);

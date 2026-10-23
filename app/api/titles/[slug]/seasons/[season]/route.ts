@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSeasonEpisodes } from "@/lib/tmdb/service";
+import { getSeasonEpisodes } from "@/lib/catalog";
 import { getRequestKey, publicApiLimiter } from "@/lib/api";
 
 export async function GET(
@@ -22,7 +22,7 @@ export async function GET(
     const results = await getSeasonEpisodes(slug, seasonNumber);
     return NextResponse.json({ results });
   } catch (error) {
-    console.error(JSON.stringify({ event: "tmdb.season_failed", slug, seasonNumber, error: String(error) }));
+    console.error(JSON.stringify({ event: "catalog.season_failed", slug, seasonNumber, error: String(error) }));
     return NextResponse.json(
       { error: { code: "SEASON_UNAVAILABLE", message: "Episode data is temporarily unavailable." } },
       { status: 502 },

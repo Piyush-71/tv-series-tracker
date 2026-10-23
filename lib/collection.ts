@@ -1,6 +1,7 @@
 import { mediaTitles } from "@/data/media";
 import { getScheduledShowsByTrackerIds } from "@/lib/schedule";
-import { getTitleBySlug } from "@/lib/tmdb/service";
+import { getTitleBySlug } from "@/lib/catalog";
+import { parseMdlSlug } from "@/lib/kuryana/identity";
 import type { CollectionEntry } from "@/types/collection";
 import type { MediaTitle } from "@/types/media";
 import type { ScheduledEpisode } from "@/types/schedule";
@@ -36,7 +37,7 @@ export function createCollectionResolver(source: CollectionSource) {
             continue;
           }
           const fixture = mediaTitles.find((title) => title.id === id);
-          if (!fixture && !/^(tv|movie)-\d+$/.test(id)) {
+          if (!fixture && !/^(tv|movie)-\d+$/.test(id) && !parseMdlSlug(id)) {
             results[index] = { id, status: "unsupported" };
             continue;
           }

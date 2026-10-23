@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { GET } from "@/app/api/calendar/route";
-import { getTitleBySlug } from "@/lib/tmdb/service";
+import { getSeasonEpisodes, getTitleBySlug } from "@/lib/catalog";
 import { getScheduledShowsByTrackerIds } from "@/lib/schedule";
 
-vi.mock("@/lib/tmdb/service", () => ({ getTitleBySlug: vi.fn() }));
+vi.mock("@/lib/catalog", () => ({ getTitleBySlug: vi.fn(), getSeasonEpisodes: vi.fn() }));
 vi.mock("@/lib/schedule", () => ({ getScheduledShowsByTrackerIds: vi.fn() }));
 vi.mock("@/lib/api", () => ({
   getRequestKey: () => "test",
@@ -40,6 +40,23 @@ beforeEach(() => {
   vi.mocked(getScheduledShowsByTrackerIds).mockResolvedValue([]);
 });
 describe("calendar batches", () => {
+  it("includes date-only MDL episodes without querying Simkl for MDL identities", async () => {
+    const id = "mdl-729705-hidden-love";
+    vi.mocked(getTitleBySlug).mockResolvedValue({ ...title(id), type: "tv" } as Awaited<ReturnType<typeof getTitleBySlug>>);
+    vi.mocked(getSeasonEpisodes).mockResolvedValue([{ ...title(id).nextEpisode, airDate: "2099-03-04" }]);
+    const body = await (await GET(request([id]))).json();
+    expect(body.results[0]).toMatchObject({ href: `/title/${id}`, title: { id }, episode: { airDate: "2099-03-04" } });
+    expect(getScheduledShowsByTrackerIds).not.toHaveBeenCalled();
+  });
+
+  it("retains MDL episode lookup failures as unavailable rather than an empty schedule", async () => {
+    const id = "mdl-729705-hidden-love";
+    vi.mocked(getTitleBySlug).mockResolvedValue({ ...title(id), type: "tv" } as Awaited<ReturnType<typeof getTitleBySlug>>);
+    vi.mocked(getSeasonEpisodes).mockRejectedValue(new Error("episodes unavailable"));
+    const body = await (await GET(request([id]))).json();
+    expect(body.failedIds).toEqual([id]);
+    expect(body.noEpisodeIds).toEqual([]);
+  });
   it.each([false, true])("uses an exact Simkl episode for a TMDB identity even when metadata is absent or failed (%s)", async (failed) => {
     vi.mocked(getTitleBySlug).mockImplementation(async () => {
       if (failed) throw new Error("TMDB unavailable");

@@ -174,7 +174,6 @@ export async function searchTitles(query: string) {
 
   return response.results
     .filter((item) => item.media_type === "movie" || item.media_type === "tv")
-    .filter((item) => item.poster_path && item.backdrop_path)
     .map((item) => toMediaTitle(item, genreMap));
 }
 

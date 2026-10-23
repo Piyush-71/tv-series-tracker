@@ -37,6 +37,10 @@ export type MediaTitle = {
   id: string;
   slug: string;
   title: string;
+  source?: "tmdb" | "mydramalist";
+  sourceUrl?: string;
+  /** A known year is not an announced release day. */
+  releaseYear?: number;
   type: MediaType;
   description: string;
   /** Empty when the source has not announced a release date. */

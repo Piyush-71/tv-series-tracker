@@ -4,7 +4,7 @@ import { SearchOverlay } from "@/components/search/search-overlay";
 import SearchPage from "@/app/search/page";
 
 vi.mock("@/hooks/use-tracker", () => ({ useTracker: () => ({ data: { searchHistory: [] }, addSearch: vi.fn() }) }));
-vi.mock("@/lib/tmdb/service", () => ({ searchTitles: vi.fn().mockResolvedValue([]) }));
+vi.mock("@/lib/catalog", () => ({ searchCatalog: vi.fn().mockResolvedValue({ results: [], partial: false }) }));
 vi.mock("@/components/media/media-grid", () => ({ MediaGrid: () => null }));
 
 beforeEach(() => {
