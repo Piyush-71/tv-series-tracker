@@ -8,8 +8,10 @@ import {
   getReminderTarget,
   reconcileReleaseOverride,
   reminderTiming,
+  withScheduledNextEpisode,
 } from "@/lib/tracker-reminders";
 import type { MediaTitle } from "@/types/media";
+import type { ScheduledEpisode } from "@/types/schedule";
 
 const now = new Date("2026-10-21T12:00:00Z");
 const reminder: TrackerReminder = {
@@ -20,6 +22,59 @@ const reminder: TrackerReminder = {
   createdAt: now.toISOString(),
   status: "missed",
 };
+
+describe("announced episode schedules", () => {
+  const title = {
+    id: "tv-42",
+    type: "tv",
+    releaseDate: "2019-03-29",
+  } as MediaTitle;
+  const episode: ScheduledEpisode = {
+    id: "next",
+    showId: "77",
+    tmdbId: "42",
+    title: "Example",
+    slug: "example",
+    poster: "/poster.jpg",
+    seasonNumber: 2,
+    episodeNumber: 1,
+    airsAt: "2026-10-24T01:00:00Z",
+    precision: "datetime",
+    kind: "season-premiere",
+    sourceUrl: "https://simkl.com/tv/77",
+  };
+  it("keeps the series premiere and uses the broadcast schedule as the reminder target", () => {
+    const resolved = withScheduledNextEpisode(title, episode, now);
+    expect(resolved.releaseDate).toBe("2019-03-29");
+    expect(getReminderTarget(resolved, undefined, now)).toBe(episode.airsAt);
+  });
+  it.each(["2026-10-20T01:00:00Z", "", "invalid"])(
+    "does not replace metadata with a past or invalid episode: %s",
+    (airsAt) => {
+      expect(withScheduledNextEpisode(title, { ...episode, airsAt }, now)).toBe(
+        title,
+      );
+    },
+  );
+  it("preserves date-only precision instead of fabricating an airtime", () => {
+    expect(
+      getReminderTarget(
+        withScheduledNextEpisode(
+          title,
+          { ...episode, airsAt: "2026-10-24", precision: "date" },
+          now,
+        ),
+        undefined,
+        now,
+      ),
+    ).toBe("2026-10-24");
+  });
+  it("does not use another show's schedule", () => {
+    expect(
+      withScheduledNextEpisode(title, { ...episode, tmdbId: "99" }, now),
+    ).toBe(title);
+  });
+});
 
 describe("reminder targets and reconciliation", () => {
   it.each(["tv", "anime"] as const)(
