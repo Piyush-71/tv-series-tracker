@@ -6,7 +6,7 @@ import { Airtime } from "@/components/schedule/airtime";
 import { ScheduleCountdown } from "@/components/schedule/schedule-countdown";
 import { Button } from "@/components/ui/button";
 import { useWatchlist } from "@/hooks/use-watchlist";
-import { getScheduleTrackerId } from "@/lib/schedule/format";
+import { getScheduleTitleHref, getScheduleTrackerId } from "@/lib/schedule/format";
 import type { ScheduledEpisode } from "@/types/schedule";
 export function ScheduleCard({
   episode,
@@ -18,14 +18,14 @@ export function ScheduleCard({
   const watchlist = useWatchlist();
   const trackerId = savedId ?? getScheduleTrackerId(episode);
   const saved = watchlist.has(trackerId);
-  const href = `/show/${episode.showId}/${episode.slug}`;
+  const href = getScheduleTitleHref(episode);
   return (
     <article className="schedule-card group rounded-2xl border border-border bg-surface p-4 transition-colors hover:bg-surface-raised">
       <div className="grid grid-cols-[72px_minmax(0,1fr)] gap-4">
         <Link
           href={href}
           className="relative aspect-[2/3] self-start overflow-hidden rounded-xl bg-background"
-          aria-label={`Open ${episode.title} countdown`}
+          aria-label={`Open ${episode.title} details`}
         >
           <Image
             src={episode.poster}

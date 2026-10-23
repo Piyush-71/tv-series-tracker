@@ -5,7 +5,7 @@ import { ScheduleColumn } from "@/components/schedule/schedule-column";
 import { ScheduleCountdown } from "@/components/schedule/schedule-countdown";
 import { FollowShowButton } from "@/components/schedule/follow-show-button";
 import { TimezoneStatus } from "@/components/schedule/timezone-status";
-import { getScheduleTrackerId } from "@/lib/schedule/format";
+import { getScheduleTitleHref, getScheduleTrackerId } from "@/lib/schedule/format";
 import type { ScheduleDashboard as Dashboard } from "@/types/schedule";
 export function ScheduleDashboard({ dashboard }: { dashboard: Dashboard }) {
   if (dashboard.unavailable) {
@@ -79,7 +79,7 @@ export function ScheduleDashboard({ dashboard }: { dashboard: Dashboard }) {
               </div>
               <div className="mt-6 flex flex-wrap gap-3">
                 <Link
-                  href={`/show/${featured.showId}/${featured.slug}`}
+                  href={getScheduleTitleHref(featured)}
                   className="action-link"
                 >
                   Explore the show <ArrowUpRight size={17} aria-hidden="true" />
@@ -101,7 +101,7 @@ export function ScheduleDashboard({ dashboard }: { dashboard: Dashboard }) {
           {dashboard.airingSoon.slice(0, 3).map((episode) => (
             <Link
               key={episode.id}
-              href={`/show/${episode.showId}/${episode.slug}`}
+              href={getScheduleTitleHref(episode)}
               className="next-link"
             >
               <span className="next-poster">

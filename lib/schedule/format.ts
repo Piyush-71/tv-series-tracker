@@ -15,3 +15,11 @@ export function formatAirtime(airsAt: string, timeZone: string) {
 export function getScheduleTrackerId(item: Pick<ScheduledEpisode, "showId" | "tmdbId">) {
   return item.tmdbId ? `tv-${item.tmdbId}` : `simkl-${item.showId}`;
 }
+
+export function getScheduleTitleHref(
+  item: Pick<ScheduledEpisode, "showId" | "tmdbId" | "slug">,
+) {
+  return item.tmdbId
+    ? `/title/tv-${item.tmdbId}`
+    : `/show/${item.showId}/${item.slug}`;
+}
