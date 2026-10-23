@@ -334,16 +334,34 @@ function MultiSelect({
                 {label}
                 {selected.length > 0 ? ` (${selected.length})` : ""}
               </span>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="rounded-lg md:h-9 md:w-9"
-                aria-label={`Close ${label.toLowerCase()}`}
-                popoverTarget={id}
-                popoverTargetAction="hide"
-              >
-                <X size={16} aria-hidden="true" />
-              </Button>
+              <div className="flex items-center gap-1">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="rounded-lg px-2"
+                  aria-label={`Clear ${label.toLowerCase()} filter`}
+                  disabled={selected.length === 0}
+                  onClick={() => {
+                    onChange([]);
+                    setSearch("");
+                    panel.current
+                      ?.querySelector("input")
+                      ?.focus({ preventScroll: true });
+                  }}
+                >
+                  Clear
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="rounded-lg md:h-9 md:w-9"
+                  aria-label={`Close ${label.toLowerCase()}`}
+                  popoverTarget={id}
+                  popoverTargetAction="hide"
+                >
+                  <X size={16} aria-hidden="true" />
+                </Button>
+              </div>
             </div>
             <div className="relative mx-3 mb-2 mt-1 shrink-0">
               <Search
@@ -359,8 +377,11 @@ function MultiSelect({
                 onChange={(event) => setSearch(event.target.value)}
               />
             </div>
-            <fieldset className="min-h-0 overflow-y-auto overscroll-contain border-t border-border p-2">
-              <legend className="sr-only">{label}</legend>
+            <div
+              role="group"
+              aria-label={label}
+              className="min-h-0 overflow-y-auto overscroll-contain border-t border-border p-2"
+            >
               {filtered.map((option) => (
                 <label
                   key={option.value}
@@ -386,7 +407,7 @@ function MultiSelect({
                   No options match.
                 </p>
               )}
-            </fieldset>
+            </div>
           </>
         )}
       </div>
