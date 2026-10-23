@@ -12,7 +12,6 @@ vi.mock("@/hooks/use-tracker", () => ({
 vi.mock("@/hooks/use-now", () => ({ useNow: () => Date.parse("2026-10-21T00:00:00Z") }));
 vi.mock("@/hooks/use-watchlist", () => ({ useWatchlist: () => ({ has: () => false, toggle: vi.fn() }) }));
 vi.mock("@/components/tracker/notify-button", () => ({ NotifyButton: () => null }));
-vi.mock("@/components/tracker/personal-title-controls", () => ({ PersonalTitleControls: () => null }));
 vi.mock("@/components/tracker/episode-tracker", () => ({ EpisodeTracker: () => null }));
 vi.mock("@/components/media/carousel-section", () => ({ CarouselSection: () => null }));
 

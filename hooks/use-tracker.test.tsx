@@ -12,8 +12,8 @@ import { useTracker } from "@/hooks/use-tracker";
 import { useEffect, useRef } from "react";
 import { NotifyButton } from "@/components/tracker/notify-button";
 import { FollowShowButton } from "@/components/schedule/follow-show-button";
-import { PersonalTitleControls } from "@/components/tracker/personal-title-controls";
 import type { MediaTitle } from "@/types/media";
+import { getReminderTarget } from "@/lib/tracker-reminders";
 import {
   createTrackerData,
   legacyWatchlistKey,
@@ -245,32 +245,20 @@ describe("tracker browser lifecycle", () => {
     ).toBe("tv-42");
   });
 
-  it("does not leave the previous account's uncontrolled note in the visible form", () => {
+  it("restores each account's saved notes when switching accounts", () => {
     const saved = createTrackerData();
     saved.notes["tv-42"] = "Alice private note";
     localStorage.setItem(getTrackerStorageKey("alice"), JSON.stringify(saved));
-    const title = {
-      id: "tv-42",
-      type: "tv",
-      releaseDate: "2010-01-01",
-    } as MediaTitle;
-    const { rerender } = render(
-      <TrackerProvider>
-        <PersonalTitleControls title={title} />
-      </TrackerProvider>,
-    );
-    expect(
-      (screen.getByLabelText("Private note") as HTMLTextAreaElement).value,
-    ).toBe("Alice private note");
+    const { result, rerender } = renderHook(() => useTracker(), {
+      wrapper: TrackerProvider,
+    });
+    expect(result.current.data.notes["tv-42"]).toBe("Alice private note");
     auth.userId = "bob";
-    rerender(
-      <TrackerProvider>
-        <PersonalTitleControls title={title} />
-      </TrackerProvider>,
-    );
-    expect(
-      (screen.getByLabelText("Private note") as HTMLTextAreaElement).value,
-    ).toBe("");
+    rerender();
+    expect(result.current.data.notes["tv-42"]).toBeUndefined();
+    auth.userId = "alice";
+    rerender();
+    expect(result.current.data.notes["tv-42"]).toBe("Alice private note");
   });
 
   it("keeps valid state untouched when a malformed import is attempted", () => {
@@ -310,7 +298,7 @@ it("keeps the legacy watchlist guest-only and writes only scoped storage", () =>
   expect(localStorage.getItem(trackerStorageKey)).toBeNull();
 });
 
-it("uses the current next episode when the official-date control removes a legacy override", () => {
+it("uses the current next episode when removing a legacy override", () => {
   const saved = createTrackerData();
   saved.releaseOverrides["tv-42"] = "2099-11-01";
   saved.reminders["tv-42"] = {
@@ -329,14 +317,11 @@ it("uses the current next episode when the official-date control removes a legac
     nextEpisode: { airDate: "2099-12-01" },
   } as MediaTitle;
   const { result } = renderHook(() => useTracker(), {
-    wrapper: ({ children }) => (
-      <TrackerProvider>
-        <PersonalTitleControls title={title} />
-        {children}
-      </TrackerProvider>
-    ),
+    wrapper: TrackerProvider,
   });
-  fireEvent.click(screen.getByRole("button", { name: "Use official date" }));
+  act(() =>
+    result.current.setReleaseOverride(title.id, null, getReminderTarget(title)),
+  );
   expect(result.current.data.reminders["tv-42"]).toMatchObject({
     releaseDate: "2099-12-01",
     status: "scheduled",
