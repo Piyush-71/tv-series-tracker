@@ -1,6 +1,34 @@
 import type { MediaTitle } from "@/types/media";
 import type { TrackerData, TrackerReminder } from "@/lib/tracker";
 import { isTrackerDate } from "@/lib/tracker-date";
+import type { ScheduledEpisode } from "@/types/schedule";
+
+/** Prefer the announced broadcast schedule without replacing the series premiere. */
+export function withScheduledNextEpisode(
+  title: MediaTitle,
+  episode?: ScheduledEpisode,
+  now = new Date(),
+): MediaTitle {
+  if (!episode || (title.type !== "tv" && title.type !== "anime")) return title;
+  if (episode.tmdbId && title.id !== `tv-${episode.tmdbId}`) return title;
+  const sameEpisode =
+    title.nextEpisode?.seasonNumber === episode.seasonNumber &&
+    title.nextEpisode?.episodeNumber === episode.episodeNumber;
+  const resolved = {
+    ...title,
+    nextEpisode: {
+      id: `s${episode.seasonNumber}e${episode.episodeNumber}`,
+      name: `Episode ${episode.episodeNumber}`,
+      overview: "",
+      rating: 0,
+      ...(sameEpisode ? title.nextEpisode : {}),
+      seasonNumber: episode.seasonNumber,
+      episodeNumber: episode.episodeNumber,
+      airDate: episode.airsAt,
+    },
+  };
+  return getReminderTarget(resolved, undefined, now) ? resolved : title;
+}
 
 /** Date-only reminders follow the device calendar; they do not invent an airtime. */
 export function reminderTiming(

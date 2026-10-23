@@ -4,6 +4,7 @@ import { getTitleBySlug } from "@/lib/tmdb/service";
 import type { CollectionEntry } from "@/types/collection";
 import type { MediaTitle } from "@/types/media";
 import type { ScheduledEpisode } from "@/types/schedule";
+import { withScheduledNextEpisode } from "@/lib/tracker-reminders";
 
 export const collectionBatchSize = 25;
 
@@ -41,7 +42,7 @@ export function createCollectionResolver(source: CollectionSource) {
           }
           const title = await source.title(fixture?.slug ?? id);
           results[index] = title || episode
-            ? { id, status: "ready", title, episode }
+            ? { id, status: "ready", title: title ? withScheduledNextEpisode(title, episode) : undefined, episode }
             : { id, status: "missing" };
         } catch {
           results[index] = episode ? { id, status: "ready", episode } : { id, status: "unavailable" };

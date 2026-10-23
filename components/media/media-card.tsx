@@ -7,6 +7,8 @@ import { NotifyButton } from "@/components/tracker/notify-button";
 import { CountdownTimer } from "@/components/media/countdown-timer";
 import { Button } from "@/components/ui/button";
 import { useWatchlist } from "@/hooks/use-watchlist";
+import { inferReleasePrecision } from "@/lib/release";
+import { getReminderTarget } from "@/lib/tracker-reminders";
 export function MediaCard({
   title,
   rank,
@@ -16,6 +18,10 @@ export function MediaCard({
 }) {
   const watchlist = useWatchlist();
   const saved = watchlist.has(title.id);
+  const episodeDate =
+    title.type === "tv" || title.type === "anime"
+      ? getReminderTarget(title)
+      : null;
   return (
     <article className="media-card group relative min-w-0">
       <div className="relative">
@@ -86,10 +92,17 @@ export function MediaCard({
         </p>
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
           <div className="text-muted">
+            {episodeDate ? (
+              <p className="mb-1 text-xs font-medium">Next episode</p>
+            ) : null}
             <CountdownTimer
               titleId={title.id}
-              releaseDate={title.releaseDate}
-              releasePrecision={title.releasePrecision}
+              releaseDate={episodeDate ?? title.releaseDate}
+              releasePrecision={
+                episodeDate
+                  ? inferReleasePrecision(episodeDate)
+                  : title.releasePrecision
+              }
               compact
             />
           </div>
