@@ -23,7 +23,10 @@ export function EpisodeTracker({ title }: { title: MediaTitle }) {
   const percent = total ? Math.round((watchedKeys.length / total) * 100) : 0;
 
   return (
-    <section className="mt-10" aria-labelledby="episodes-heading">
+    <section
+      className="min-w-0 border-t border-border pt-8 sm:pt-10"
+      aria-labelledby="episodes-heading"
+    >
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h2

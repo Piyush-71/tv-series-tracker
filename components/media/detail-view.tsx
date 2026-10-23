@@ -14,7 +14,6 @@ import { useEffect, useRef, useState } from "react";
 import type { MediaTitle } from "@/types/media";
 import { useTracker } from "@/hooks/use-tracker";
 import { NotifyButton } from "@/components/tracker/notify-button";
-import { PersonalTitleControls } from "@/components/tracker/personal-title-controls";
 import { EpisodeTracker } from "@/components/tracker/episode-tracker";
 import { Button } from "@/components/ui/button";
 import { CountdownTimer } from "@/components/media/countdown-timer";
@@ -128,10 +127,13 @@ export function DetailView({
           </div>
         </section>
       </div>
-      <section className="page-shell grid gap-10 py-12 lg:grid-cols-[1fr_340px] lg:gap-16">
-        <div className="min-w-0">
+      <div className="page-shell grid items-start gap-8 py-8 sm:gap-10 sm:py-12 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-x-12">
+        <section className="min-w-0" aria-labelledby="story-heading">
           <p className="eyebrow">The story</p>
-          <h2 className="mt-3 text-2xl font-semibold tracking-tight">
+          <h2
+            id="story-heading"
+            className="mt-3 text-2xl font-semibold tracking-tight"
+          >
             What’s it about?
           </h2>
           <p className="mt-5 max-w-3xl text-base leading-8 text-muted">
@@ -140,47 +142,16 @@ export function DetailView({
           <div className="mt-6">
             <GenrePills genres={title.genres} />
           </div>
-          <PersonalTitleControls title={title} />
-          {title.type === "tv" || title.type === "anime" ? (
-            <EpisodeTracker title={title} />
-          ) : null}
-          {title.cast.length ? (
-            <>
-              <div className="mb-6 mt-12 flex items-center gap-3">
-                <h2 className="text-2xl font-semibold tracking-tight">
-                  The people behind it
-                </h2>
-                <span className="text-sm text-muted">
-                  {title.cast.length} cast members
-                </span>
-              </div>
-              <div className="grid grid-cols-2 gap-5 sm:grid-cols-3">
-                {title.cast.map((person) => (
-                  <div key={person.name}>
-                    <div className="relative aspect-[4/5] overflow-hidden rounded-2xl border border-border bg-surface">
-                      <Image
-                        src={person.image}
-                        alt={person.name}
-                        fill
-                        sizes="(max-width: 639px) 45vw, (max-width: 1023px) 28vw, 220px"
-                        className="object-cover"
-                      />
-                    </div>
-                    <h3 className="mt-3 text-sm font-semibold">
-                      {person.name}
-                    </h3>
-                    <p className="mt-1 text-xs leading-5 text-muted">
-                      {person.role}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </>
-          ) : null}
-        </div>
-        <aside className="self-start rounded-2xl border border-border bg-surface p-6">
+        </section>
+        <aside
+          aria-labelledby="release-heading"
+          className="min-w-0 rounded-2xl border border-border bg-surface p-5 sm:p-6 lg:col-start-2 lg:row-span-3 lg:row-start-1"
+        >
           <p className="eyebrow">Mark your calendar</p>
-          <h2 className="mt-3 text-xl font-semibold tracking-tight">
+          <h2
+            id="release-heading"
+            className="mt-3 text-xl font-semibold tracking-tight"
+          >
             The release details
           </h2>
           <div className="mt-6 flex items-center gap-3 border-b border-border pb-5">
@@ -260,7 +231,49 @@ export function DetailView({
             Visit your watchlist <ArrowUpRight size={16} aria-hidden="true" />
           </Link>
         </aside>
-      </section>
+        {title.type === "tv" || title.type === "anime" ? (
+          <EpisodeTracker title={title} />
+        ) : null}
+        {title.cast.length ? (
+          <section
+            aria-labelledby="cast-heading"
+            className="min-w-0 border-t border-border pt-8 sm:pt-10"
+          >
+            <div className="mb-6 flex flex-wrap items-baseline justify-between gap-2">
+              <h2
+                id="cast-heading"
+                className="text-2xl font-semibold tracking-tight"
+              >
+                The people behind it
+              </h2>
+              <span className="text-sm text-muted">
+                {title.cast.length} cast members
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 sm:gap-x-5">
+              {title.cast.map((person) => (
+                <div key={person.name}>
+                  <div className="relative aspect-[4/5] overflow-hidden rounded-2xl border border-border bg-surface">
+                    <Image
+                      src={person.image}
+                      alt={person.name}
+                      fill
+                      sizes="(max-width: 639px) 45vw, (max-width: 1023px) 28vw, 220px"
+                      className="object-cover"
+                    />
+                  </div>
+                  <h3 className="mt-3 text-sm font-semibold">
+                    {person.name}
+                  </h3>
+                  <p className="mt-1 text-xs leading-5 text-muted">
+                    {person.role}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : null}
+      </div>
       <div className="pb-12">
         <CarouselSection
           title="Keep the discovery going"

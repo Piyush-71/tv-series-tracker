@@ -1,6 +1,6 @@
 # Cinecount
 
-Cinecount is a schedule-first TV discovery and personal tracking application. It combines exact episode airtimes and live countdowns with TMDB discovery, episode progress, watch history, ratings, notes, reminders, and portable browser-local profiles.
+Cinecount is a schedule-first TV discovery and personal tracking application. It combines exact episode airtimes and live countdowns with TMDB discovery, episode progress, reminders, and portable browser-local profiles.
 
 ## Product capabilities
 
@@ -12,9 +12,9 @@ Cinecount is a schedule-first TV discovery and personal tracking application. It
 - Server-backed discovery filters for type, genre, year, country, original language, provider, and availability
 - Popularity, release-date, rating, and alphabetical sorting with paginated “load more” results
 - Honest release displays: exact Simkl airtimes receive live countdowns, while TMDB date-only data stays labeled as a date
-- User-selectable regional dates, custom local release times, and visible timezone information
+- Visible timezone information for scheduled airtimes
 - Clerk authentication for private watchlist and profile routes
-- Account-isolated browser-local watchlists, watched history, recently viewed titles, ratings, private notes, and preferences
+- Account-isolated browser-local watchlists, recently viewed titles, episode progress, and preferences; existing ratings, notes, watched history, and release overrides remain supported in tracker imports/exports
 - Season/episode progress and a next-episode calendar for saved series
 - Background Web Push reminders for signed-in users, with browser-local reminders as a fallback
 - Shareable watchlist links plus JSON import/export
