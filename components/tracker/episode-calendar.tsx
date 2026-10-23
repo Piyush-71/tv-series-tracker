@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import type { MediaEpisode } from "@/types/media";
 import { useTracker } from "@/hooks/use-tracker";
 import { formatReleaseDate } from "@/lib/utils";
+import { parseMdlSlug } from "@/lib/kuryana/identity";
 
 type CalendarEntry = {
   href?: string;
@@ -17,7 +18,7 @@ type CalendarEntry = {
 export function EpisodeCalendar() {
   const tracker = useTracker();
   const idKey = [...new Set(tracker.data.watchlistIds)]
-    .filter((id) => id.startsWith("tv-") || id.startsWith("simkl-"))
+    .filter((id) => id.startsWith("tv-") || id.startsWith("simkl-") || parseMdlSlug(id))
     .join(",");
   const [retry, setRetry] = useState(0);
   const requestKey = `${idKey}:${retry}`;

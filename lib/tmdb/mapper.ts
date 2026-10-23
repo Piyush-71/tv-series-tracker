@@ -133,6 +133,8 @@ export function toMediaTitle(
     id: `${getTmdbMediaType(item, fallbackType)}-${item.id}`,
     slug: toTmdbSlug(item, fallbackType),
     title: item.title ?? item.name ?? "Untitled",
+    source: "tmdb",
+    sourceUrl: `https://www.themoviedb.org/${getTmdbMediaType(item, fallbackType)}/${item.id}`,
     type: mediaType,
     description: item.overview || "No synopsis is available yet.",
     releaseDate,

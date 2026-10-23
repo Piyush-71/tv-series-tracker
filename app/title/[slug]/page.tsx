@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { DetailView } from "@/components/media/detail-view";
-import { getSimilarTitles, getTitleBySlug } from "@/lib/tmdb/service";
+import { getSimilarTitles, getTitleBySlug } from "@/lib/catalog";
 
 type Props = {
   params: Promise<{ slug: string }>;

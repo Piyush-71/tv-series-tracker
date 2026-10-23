@@ -91,7 +91,7 @@ export function DetailView({
                     <span className="text-xs">/ 10</span>
                   </span>
                 ) : null}
-                <span>{formatReleaseYear(title.releaseDate)}</span>
+                <span>{title.releaseYear ?? formatReleaseYear(title.releaseDate)}</span>
                 <span>{title.genres.join(" · ")}</span>
               </div>
               <p className="mt-5 text-base leading-7 text-hero-muted">
@@ -171,9 +171,9 @@ export function DetailView({
             />
           </div>
           <div className="mt-6">
-            <p className="text-xs text-muted">Where to watch</p>
+            <p className="text-xs text-muted">{title.source === "mydramalist" ? "Original network" : "Where to watch"}</p>
             <p className="mt-2 text-sm font-medium">
-              {title.platform === "TMDB"
+              {!title.platform || title.platform === "TMDB"
                 ? "Streaming provider not announced"
                 : title.platform}
             </p>
@@ -213,6 +213,12 @@ export function DetailView({
               ) : null,
             )}
           </dl>
+          {title.sourceUrl ? (
+            <a href={title.sourceUrl} target="_blank" rel="noreferrer" className="mt-5 inline-flex min-h-11 items-center gap-2 text-sm text-muted hover:text-foreground">
+              Title information from {title.source === "mydramalist" ? "MyDramaList" : "TMDB"}
+              <ArrowUpRight size={15} aria-hidden="true" />
+            </a>
+          ) : null}
           {title.providerLink ? (
             <a
               href={title.providerLink}
