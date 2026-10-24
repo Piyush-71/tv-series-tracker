@@ -184,30 +184,23 @@ function Select<T extends string>({
   return (
     <label className={labelClass}>
       <span>{label}</span>
-      <div className="relative">
-        <select
-          aria-label={accessibleLabel}
-          value={value}
-          onChange={(event) => {
-            const option = options.find(
-              (item) => item.value === event.target.value,
-            );
-            if (option) onChange(option.value);
-          }}
-          className={cn(controlClass, "appearance-none truncate pr-8")}
-        >
-          {options.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-        <ChevronDown
-          size={14}
-          aria-hidden="true"
-          className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted"
-        />
-      </div>
+      <select
+        aria-label={accessibleLabel}
+        value={value}
+        onChange={(event) => {
+          const option = options.find(
+            (item) => item.value === event.target.value,
+          );
+          if (option) onChange(option.value);
+        }}
+        className={cn(controlClass, "truncate")}
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
     </label>
   );
 }
