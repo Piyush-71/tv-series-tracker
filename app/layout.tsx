@@ -5,6 +5,7 @@ import Script from "next/script";
 import { Geist, Space_Grotesk } from "next/font/google";
 import { Navbar } from "@/components/layout/navbar";
 import { TrackerProvider } from "@/components/tracker/tracker-provider";
+import { AccountSync } from "@/components/tracker/account-sync";
 import { TrackerRuntime } from "@/components/tracker/tracker-runtime";
 import { WebPushProvider } from "@/components/tracker/web-push-provider";
 import { Footer } from "@/components/layout/footer";
@@ -115,6 +116,7 @@ export default function RootLayout({
               </a>
               <TrackerRuntime />
               <Navbar />
+              <AccountSync />
               <main id="main-content" tabIndex={-1} className="min-h-[70dvh]">
                 {children}
               </main>

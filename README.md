@@ -1,12 +1,12 @@
 # Cinecount
 
-Cinecount is a schedule-first TV discovery and personal tracking application. It combines exact episode airtimes and live countdowns with TMDB discovery, episode progress, reminders, and portable browser-local profiles.
+Cinecount is a schedule-first TV discovery and personal tracking application. It combines exact episode airtimes and live countdowns with TMDB discovery, episode progress, reminders, and portable account-backed profiles.
 
 ## Product capabilities
 
 - A schedule dashboard for trending episodes, series premieres, season premieres, soon-to-air episodes, and recently aired episodes
 - Exact episode airtimes powered by Simkl's public TV calendar, with an explicit unavailable state during source outages
-- Shared live countdown clock and browser-local timezone selection for schedule airtimes and countdown labels (defaults to the device timezone)
+- Shared live countdown clock and account timezone selection for schedule airtimes and countdown labels (defaults to the device timezone)
 - Trending and upcoming release discovery powered by TMDB, with a built-in fallback catalog
 - Search, category pages, title details, trailers, cast, streaming providers, and recommendations
 - Server-backed discovery filters for type, genre, year, country, original language, provider, and availability
@@ -14,7 +14,7 @@ Cinecount is a schedule-first TV discovery and personal tracking application. It
 - Honest release displays: exact Simkl airtimes receive live countdowns, while TMDB date-only data stays labeled as a date
 - Visible timezone information for scheduled airtimes
 - Clerk authentication for private watchlist and profile routes
-- Account-isolated browser-local watchlists, recently viewed titles, episode progress, and preferences; existing ratings, notes, watched history, and release overrides remain supported in tracker imports/exports
+- Account-synced watchlists, recently viewed titles, episode progress, preferences, ratings, notes, watched history, and release overrides with offline local caching
 - Season/episode progress and a next-episode calendar for saved series
 - Background Web Push reminders for signed-in users, with browser-local reminders as a fallback
 - Shareable watchlist links plus JSON import/export
@@ -108,9 +108,9 @@ The principal routes are:
 
 ## Data and privacy
 
-Personal tracker data remains in the current browser and is not synchronized by Clerk. The Profile page provides JSON backup/restore. Opting into background notifications stores the current browser's push subscription, Clerk user ID, and reminder titles, dates, and delivery state in Postgres. Other tracker data (notes, ratings, watch history, and watchlists) stays browser-local.
+Signed-in tracker data is synchronized to the account through authenticated API routes and Neon Postgres. Clerk supplies the account identity. A local cache supports offline use, and Profile provides JSON backup/restore. Opting into background notifications additionally stores each browser’s push subscription and reminder delivery snapshot. Guest data remains local until explicitly exported and imported into an account.
 
-Background reminders are synchronized while the app is open and delivered by the scheduler after it closes. Disabling notifications, resetting local tracker data, or signing out revokes this browser's subscription; expired endpoints are removed on delivery failure and inactive devices expire after 90 days. If offline, the browser unsubscribes immediately and retries server deletion on reconnect/reload. Unsynced edits cannot change server delivery until the connection returns. Guest users and unconfigured deployments retain reminders evaluated while a Cinecount page is open.
+Background reminders are synchronized while the app is open and delivered by the scheduler after it closes. Disabling notifications, resetting tracker data, or signing out revokes this browser's subscription; expired endpoints are removed on delivery failure and inactive devices expire after 90 days. If offline, the browser unsubscribes immediately and retries server deletion on reconnect/reload. Unsynced edits cannot change server delivery until the connection returns. Guest users and unconfigured deployments retain reminders evaluated while a Cinecount page is open.
 
 Simkl schedule entries include exact timestamps and power the countdown experience. TMDB commonly supplies calendar dates without exact airtimes; Cinecount preserves that distinction and only runs second-level countdowns for exact timestamps or user-provided local times.
 
@@ -140,6 +140,14 @@ Public JSON endpoints validate and bound input, return structured `{ error: { co
 - Query validation and rate limiting
 - Schedule dashboard and detail navigation, mobile navigation, discovery filtering, saving, and authentication redirects in a real browser
 
-## Planned persistence boundary
+## Account persistence
 
-Background Web Push persists only the reminder delivery snapshot. The next persistence phase should replace the browser adapter with a user-scoped database implementation for watchlists, progress, ratings, notes, and cross-device reminder management. The current domain terms and import format are intended to make that migration incremental rather than a UI rewrite.
+Signed-in tracker data is stored in Neon Postgres through authenticated `GET /api/tracker` and revision-checked `PUT /api/tracker` routes. Watchlists, viewing progress, ratings, notes, release overrides, reminders, history, and preferences follow the Clerk account across browsers and deployments. Browser notification consent and push subscriptions remain device-specific.
+
+Set `DATABASE_URL` and apply `npm run db:migrate:tracker`. The idempotent migration adds `account_trackers` without modifying existing notification tables. `DATABASE_URL_UNPOOLED` takes priority for the migration when provided. For the same account to work on the production site and trusted PR previews, configure both environments with the same database and Clerk instance. Previews using isolated test databases will have separate tracker data.
+
+On first connection, existing **account-scoped** browser data is added to the account; existing cloud values win conflicts. Open the updated original site once to upload titles saved there. Guest and older unscoped data are never automatically claimed by a signed-in account; use the existing guest export and Profile import to transfer them explicitly.
+
+Every device retains an account-scoped local cache and the last acknowledged server snapshot together. Changes work offline and retry on reconnect, tab focus, or the next minute while visible. Updates read the latest server revision first and replay local changes per title, episode, and preference field; stale revisions return 409 and are rebased. Independent edits survive, explicit removals are preserved, and a concurrent edit to the same item is resolved by the local pending change. Account changes cancel in-flight sync and reject stale writes. Responses are private and never cached.
+
+The Profile page shows sync status. Failed sync shows an actionable retry notice across the app; data stays on the device until the backend is reachable. Imports and tracker reset sync to the account too. Export JSON remains available as a portable backup. API requests are limited to 1 MB, and malformed or cross-origin writes are rejected.

@@ -1,24 +1,25 @@
 "use client";
 
 import { CalendarDays, LoaderCircle } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import type { MediaEpisode } from "@/types/media";
 import { useTracker } from "@/hooks/use-tracker";
-import { formatReleaseDate } from "@/lib/utils";
 import { parseMdlSlug } from "@/lib/kuryana/identity";
-
-type CalendarEntry = {
-  href?: string;
-  title: { id: string; slug: string; title: string; poster: string };
-  episode: MediaEpisode;
-};
+import {
+  CalendarSchedule,
+  type CalendarEntry,
+} from "@/components/tracker/calendar-schedule";
+import { TimezoneSelect } from "@/components/tracker/timezone-select";
+import { PageHeading } from "@/components/layout/page-heading";
+import { calendarDay } from "@/lib/calendar";
 
 export function EpisodeCalendar() {
   const tracker = useTracker();
   const idKey = [...new Set(tracker.data.watchlistIds)]
-    .filter((id) => id.startsWith("tv-") || id.startsWith("simkl-") || parseMdlSlug(id))
+    .filter(
+      (id) =>
+        id.startsWith("tv-") || id.startsWith("simkl-") || parseMdlSlug(id),
+    )
     .join(",");
   const [retry, setRetry] = useState(0);
   const requestKey = `${idKey}:${retry}`;
@@ -29,6 +30,7 @@ export function EpisodeCalendar() {
     unresolvedIds: string[];
   }>({ key: "", entries: [], failedIds: [], unresolvedIds: [] });
   const loading = state.key !== requestKey;
+  const timeZone = tracker.data.preferences.timeZone || "UTC";
 
   useEffect(() => {
     if (!idKey) return;
@@ -81,21 +83,50 @@ export function EpisodeCalendar() {
 
   return (
     <section className="page-shell page-section">
-      <p className="text-xs font-bold uppercase tracking-[0.24em] text-foreground">
-        Your schedule
-      </p>
-      <h1 className="mt-2 text-4xl font-semibold text-foreground sm:text-6xl">
-        Upcoming episodes
-      </h1>
-      <p className="mt-4 text-muted">
-        Next announced episodes for TV and anime in your watchlist, ordered by
-        air date.
-      </p>
+      <PageHeading
+        eyebrow="Make time for your favorites"
+        title="My Calendar"
+        description="Your next episodes, at a glance. Plan your viewing around the shows you follow."
+      >
+        <Link href="/watchlist" className="secondary-link shrink-0">
+          My Countdowns
+        </Link>
+      </PageHeading>
+      <div className="mb-6 flex flex-wrap items-center gap-3 text-sm text-muted">
+        <label htmlFor="calendar-timezone">Schedule timezone</label>
+        <TimezoneSelect id="calendar-timezone" />
+        <span className="text-xs">
+          Date-only announcements keep their published date.
+        </span>
+      </div>
       <div className="mt-8">
-        {!idKey ? (
+        {!idKey && ["loading", "syncing"].includes(tracker.sync?.status) ? (
+          <p role="status" className="text-muted">
+            Loading your account’s shows…
+          </p>
+        ) : !idKey && tracker.sync?.status === "error" ? (
+          <div className="empty-state">
+            <h2 className="text-xl font-semibold">
+              Your account couldn’t be loaded
+            </h2>
+            <p className="mt-3 text-muted">
+              Reconnect to build the calendar for your saved shows.
+            </p>
+            <button
+              type="button"
+              className="secondary-link mt-5"
+              onClick={tracker.retrySync}
+            >
+              Retry sync
+            </button>
+          </div>
+        ) : !idKey ? (
           <Empty />
         ) : loading ? (
-          <div className="flex items-center gap-2 text-muted">
+          <div
+            role="status"
+            className="flex min-h-64 items-center justify-center gap-2 rounded-2xl border border-border bg-surface text-muted"
+          >
             <LoaderCircle className="animate-spin" size={18} />
             Building your calendar…
           </div>
@@ -134,41 +165,13 @@ export function EpisodeCalendar() {
                 No next episodes have been announced for your saved shows.
               </div>
             ) : null}
-            <div className="grid gap-3">
-              {state.entries.map((entry) => (
-                <Link
-                  key={`${entry.title.id}-${entry.episode.id}`}
-                  href={entry.href ?? `/title/${entry.title.slug}`}
-                  className="grid grid-cols-[72px_1fr] gap-4 rounded-xl border border-border bg-surface p-3 hover:border-border sm:grid-cols-[72px_1fr_auto] sm:items-center"
-                >
-                  <Image
-                    src={entry.title.poster}
-                    alt=""
-                    width={72}
-                    height={108}
-                    className="aspect-[2/3] rounded-md object-cover"
-                  />
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-wider text-foreground">
-                      Season {entry.episode.seasonNumber} · Episode{" "}
-                      {entry.episode.episodeNumber}
-                    </p>
-                    <h2 className="mt-1 text-lg font-semibold text-foreground">
-                      {entry.title.title}: {entry.episode.name}
-                    </h2>
-                    <p className="mt-1 line-clamp-1 text-sm text-muted">
-                      {entry.episode.overview}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm font-bold text-foreground">
-                    <CalendarDays size={17} />
-                    {entry.episode.airDate
-                      ? formatReleaseDate(entry.episode.airDate)
-                      : "TBA"}
-                  </div>
-                </Link>
-              ))}
-            </div>
+            {state.entries.length ? (
+              <CalendarSchedule
+                entries={state.entries}
+                timeZone={timeZone}
+                today={calendarDay(new Date().toISOString(), timeZone)!}
+              />
+            ) : null}
           </>
         )}
       </div>

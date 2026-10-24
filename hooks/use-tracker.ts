@@ -3,8 +3,11 @@
 import { normalizeTimeZone } from "@/lib/timezone";
 import { useContext, useSyncExternalStore } from "react";
 import { TrackerStoreContext } from "@/components/tracker/tracker-provider";
-import { emptyTrackerSnapshot } from "@/lib/tracker-store";
-import { getReminderTarget, reconcileReleaseOverride } from "@/lib/tracker-reminders";
+import { emptyTrackerSnapshot, localSyncState } from "@/lib/tracker-store";
+import {
+  getReminderTarget,
+  reconcileReleaseOverride,
+} from "@/lib/tracker-reminders";
 import type { MediaTitle } from "@/types/media";
 import {
   createTrackerData,
@@ -24,10 +27,17 @@ export function useTracker() {
     store.read,
     () => emptyTrackerSnapshot,
   );
+  const sync = useSyncExternalStore(
+    store.subscribe,
+    store.readSync,
+    () => localSyncState,
+  );
   const update = store.update;
 
   return {
     data,
+    sync,
+    retrySync: store.retrySync,
     isReady: store.isReady,
     isCurrentScope: store.isActive,
     toggleWatchlist(id: string) {
@@ -93,7 +103,10 @@ export function useTracker() {
       update((current) => {
         // Permission prompts can outlive an override edit. Resolve the target
         // inside the active store update, rather than from the opening render.
-        const releaseDate = getReminderTarget(title, current.releaseOverrides[title.id]);
+        const releaseDate = getReminderTarget(
+          title,
+          current.releaseOverrides[title.id],
+        );
         if (!releaseDate || current.reminders[title.id]) return current;
         return {
           ...current,
@@ -101,9 +114,13 @@ export function useTracker() {
           reminders: {
             ...current.reminders,
             [title.id]: {
-              id: title.id, title: title.title, releaseDate,
+              id: title.id,
+              title: title.title,
+              releaseDate,
               originalReleaseDate: getReminderTarget(title),
-              leadMinutes: 1440, createdAt: new Date().toISOString(), status: "scheduled",
+              leadMinutes: 1440,
+              createdAt: new Date().toISOString(),
+              status: "scheduled",
             },
           },
         };

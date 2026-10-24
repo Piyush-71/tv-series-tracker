@@ -534,3 +534,19 @@ body {
     font-size: 2.9rem;
   }
 }
+
+/* Keep the calendar's keyboard focus visible above neighboring day cells. */
+.calendar-day:focus-visible {
+  z-index: 1;
+  outline-offset: -4px;
+}
+.saved-title-card [role="timer"] {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+.saved-title-card [role="timer"] p:first-child {
+  font-family: var(--font-display), var(--font-sans);
+  font-size: 1.5rem;
+  line-height: 2rem;
+}

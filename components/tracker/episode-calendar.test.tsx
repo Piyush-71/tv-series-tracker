@@ -1,8 +1,16 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EpisodeCalendar } from "@/components/tracker/episode-calendar";
 
-const tracker = vi.hoisted(() => ({ data: { watchlistIds: [] as string[] } }));
+const tracker = vi.hoisted(() => ({
+  data: { watchlistIds: [] as string[], preferences: { timeZone: "UTC" } },
+}));
 vi.mock("@/hooks/use-tracker", () => ({ useTracker: () => tracker }));
 vi.mock("next/image", () => ({ default: () => null }));
 afterEach(() => {
@@ -50,8 +58,12 @@ describe("followed episode calendar", () => {
     });
     vi.stubGlobal("fetch", fetcher);
     render(<EpisodeCalendar />);
-    await screen.findByText("Title simkl-900: Next");
-    expect(screen.getByText("Title tv-26: Next")).toBeDefined();
+    await screen.findByRole("button", { name: "Agenda" });
+    fireEvent.click(screen.getByRole("button", { name: "Agenda" }));
+    await screen.findByRole("heading", { name: "Title simkl-900: Next" });
+    expect(
+      screen.getByRole("heading", { name: "Title tv-26: Next" }),
+    ).toBeDefined();
     expect(fetcher).toHaveBeenCalledTimes(2);
     expect(
       fetcher.mock.calls.every(
@@ -66,15 +78,13 @@ describe("followed episode calendar", () => {
     tracker.data.watchlistIds = ["simkl-900"];
     vi.stubGlobal(
       "fetch",
-      vi
-        .fn()
-        .mockResolvedValue(
-          Response.json({
-            results: [],
-            unresolvedIds: ["simkl-900"],
-            failedIds: [],
-          }),
-        ),
+      vi.fn().mockResolvedValue(
+        Response.json({
+          results: [],
+          unresolvedIds: ["simkl-900"],
+          failedIds: [],
+        }),
+      ),
     );
     render(<EpisodeCalendar />);
     await screen.findByRole("alert");
@@ -109,7 +119,10 @@ describe("followed episode calendar", () => {
     await waitFor(() =>
       expect(screen.queryByText("Building your calendar…")).toBeNull(),
     );
-    expect(screen.getByText("Title tv-1: Next")).toBeDefined();
+    fireEvent.click(screen.getByRole("button", { name: "Agenda" }));
+    expect(
+      screen.getByRole("heading", { name: "Title tv-1: Next" }),
+    ).toBeDefined();
     expect(screen.getByRole("alert")).toBeDefined();
   });
 });

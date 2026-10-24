@@ -3,16 +3,16 @@ import { PageHeading } from "@/components/layout/page-heading";
 import { WatchlistClient } from "@/components/media/watchlist-client";
 
 export const metadata: Metadata = {
-  title: "Watchlist",
+  title: "My Countdowns",
 };
 
 export default function WatchlistPage() {
   return (
     <section className="page-shell page-section">
       <PageHeading
-        eyebrow="A collection of your own"
+        eyebrow="Your personal lineup"
         title="My Countdowns"
-        description="The next episodes of your favorite shows, and every story you’ve saved for later."
+        description="Everything you’re waiting for, in one place. Follow the next episode, check a release date, and make time for your favorites."
       />
       <div className="mt-8">
         <WatchlistClient />

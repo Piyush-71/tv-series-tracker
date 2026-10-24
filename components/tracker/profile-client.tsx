@@ -37,8 +37,11 @@ export function ProfileClient({
   const watchedIds = tracker.data.watchedTitleIds;
   const ratedIds = Object.keys(tracker.data.ratings);
   const collection = useCollection([...recentIds, ...watchedIds, ...ratedIds]);
-  const entryMap = new Map(collection.entries.map((entry) => [entry.id, entry]));
-  const entriesFor = (ids: string[]) => ids.flatMap((id) => entryMap.get(id) ? [entryMap.get(id)!] : []);
+  const entryMap = new Map(
+    collection.entries.map((entry) => [entry.id, entry]),
+  );
+  const entriesFor = (ids: string[]) =>
+    ids.flatMap((id) => (entryMap.get(id) ? [entryMap.get(id)!] : []));
   const recent = entriesFor(recentIds);
   const watched = entriesFor(watchedIds);
   const rated = entriesFor(ratedIds);
@@ -86,8 +89,12 @@ export function ProfileClient({
         {user?.firstName ? `${user.firstName}'s Cinecount` : "Your Cinecount"}
       </h1>
       <p className="mt-4 max-w-2xl text-muted">
-        Your preferences and progress are saved on this device. Export
-        a backup before switching devices.
+        Your signed-in tracker syncs across devices. This browser keeps a local
+        copy so you can keep using it offline.
+      </p>
+
+      <p className="mt-3 text-sm text-muted" role="status">
+        {tracker.sync?.message}
       </p>
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -210,7 +217,8 @@ export function ProfileClient({
           </h2>
           <p className="mt-2 text-sm text-muted">
             Reminders are sent one day before the saved release. Date-only
-            reminders follow this device’s calendar; exact airtime is not assumed.
+            reminders follow this device’s calendar; exact airtime is not
+            assumed.
           </p>
           <WebPushSettings />
           <div className="mt-4 grid gap-2">
@@ -266,12 +274,16 @@ export function ProfileClient({
           <Button
             variant="danger"
             onClick={() => {
-              if (window.confirm("Clear all browser-local Cinecount data?"))
+              if (
+                window.confirm(
+                  "Clear your Cinecount tracker, including the synced account copy? This cannot be undone.",
+                )
+              )
                 tracker.reset();
             }}
           >
             <RotateCcw size={17} />
-            Reset local data
+            Reset tracker data
           </Button>
           <input
             ref={inputRef}
@@ -289,10 +301,20 @@ export function ProfileClient({
       </section>
 
       {recent.length ? (
-        <Collection title="Recently viewed" entries={recent} loading={collection.loading} onRetry={collection.refresh} />
+        <Collection
+          title="Recently viewed"
+          entries={recent}
+          loading={collection.loading}
+          onRetry={collection.refresh}
+        />
       ) : null}
       {watched.length ? (
-        <Collection title="Watched history" entries={watched} loading={collection.loading} onRetry={collection.refresh} />
+        <Collection
+          title="Watched history"
+          entries={watched}
+          loading={collection.loading}
+          onRetry={collection.refresh}
+        />
       ) : null}
       {rated.length ? (
         <Collection
