@@ -70,6 +70,37 @@ export function WatchlistClient() {
       </p>
     );
 
+  if (
+    !watchlist.ids.length &&
+    ["loading", "syncing"].includes(tracker.sync?.status)
+  ) {
+    return (
+      <p role="status" className="text-muted">
+        Loading your account’s countdowns…
+      </p>
+    );
+  }
+
+  if (!watchlist.ids.length && tracker.sync?.status === "error") {
+    return (
+      <div className="empty-state">
+        <h2 className="text-xl font-semibold">
+          Your account couldn’t be loaded
+        </h2>
+        <p className="mt-3 text-muted">
+          Reconnect to load the titles you follow on other devices.
+        </p>
+        <Button
+          className="mt-5"
+          variant="secondary"
+          onClick={tracker.retrySync}
+        >
+          Retry sync
+        </Button>
+      </div>
+    );
+  }
+
   if (!watchlist.ids.length) {
     return (
       <div className="empty-state">

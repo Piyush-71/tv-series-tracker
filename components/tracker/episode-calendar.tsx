@@ -100,7 +100,27 @@ export function EpisodeCalendar() {
         </span>
       </div>
       <div className="mt-8">
-        {!idKey ? (
+        {!idKey && ["loading", "syncing"].includes(tracker.sync?.status) ? (
+          <p role="status" className="text-muted">
+            Loading your account’s shows…
+          </p>
+        ) : !idKey && tracker.sync?.status === "error" ? (
+          <div className="empty-state">
+            <h2 className="text-xl font-semibold">
+              Your account couldn’t be loaded
+            </h2>
+            <p className="mt-3 text-muted">
+              Reconnect to build the calendar for your saved shows.
+            </p>
+            <button
+              type="button"
+              className="secondary-link mt-5"
+              onClick={tracker.retrySync}
+            >
+              Retry sync
+            </button>
+          </div>
+        ) : !idKey ? (
           <Empty />
         ) : loading ? (
           <div

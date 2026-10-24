@@ -57,7 +57,7 @@ export default async function LoginPage() {
         </h1>
         <p className="mb-7 mt-4 text-sm leading-7 text-muted">
           Sign in or create an account to make yourself at home. Your watchlist
-          stays saved on this device.
+          and viewing progress follow your account across devices.
         </p>
         <GuestTrackerExport />
         <SignIn

@@ -11,7 +11,8 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "db:migrate:push": "node scripts/migrate-push.mjs",
-    "push:keys": "web-push generate-vapid-keys"
+    "push:keys": "web-push generate-vapid-keys",
+    "db:migrate:tracker": "node scripts/migrate-tracker.mjs"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.5.0",
